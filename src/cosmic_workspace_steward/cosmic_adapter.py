@@ -162,11 +162,17 @@ class CosmicWmCapabilityAdapter:
             return None
 
         if result.returncode != 0:
-            message = (result.stderr or result.stdout).strip() or "command returned no output"
+            if failure_code == "version_unsupported":
+                message = "cosmic-wm does not support the --version probe"
+            else:
+                message = (
+                    (result.stderr or result.stdout).strip()
+                    or "command returned no output"
+                )
             diagnostics.append(
                 Diagnostic(
                     failure_code,
-                    f"{' '.join(argv)} exited with {result.returncode}: {message}",
+                    message,
                 ),
             )
             return None
