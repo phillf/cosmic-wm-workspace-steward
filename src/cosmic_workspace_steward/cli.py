@@ -24,6 +24,7 @@ _USAGE = """usage:
   python -m cosmic_workspace_steward.cli show profile NAME
   python -m cosmic_workspace_steward.cli show session NAME
   python -m cosmic_workspace_steward.cli plan profile NAME
+  python -m cosmic_workspace_steward.cli start PROFILE --dry-run
 """
 
 
@@ -97,8 +98,18 @@ def main(
             print(artifact.name, file=output)
         return 0
 
-    if len(arguments) == 3 and arguments[0] == "plan" and arguments[1] == "profile":
-        name = arguments[2]
+    is_plan_command = (
+        len(arguments) == 3
+        and arguments[0] == "plan"
+        and arguments[1] == "profile"
+    )
+    is_dry_run_start = (
+        len(arguments) == 3
+        and arguments[0] == "start"
+        and arguments[2] == "--dry-run"
+    )
+    if is_plan_command or is_dry_run_start:
+        name = arguments[2] if is_plan_command else arguments[1]
         if not is_safe_logical_name(name):
             print(f"error: unsafe profile name: {name!r}", file=errors)
             return 2

@@ -215,3 +215,34 @@ def test_plan_profile_rejects_unsafe_name_before_discovery(tmp_path: Path) -> No
     assert exit_code == 2
     assert stdout == ""
     assert stderr == "error: unsafe profile name: '../escape'\n"
+
+
+def test_start_dry_run_is_an_alias_for_profile_planning(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    profiles = generic_data_root(home) / "profiles"
+    write_artifact(
+        profiles,
+        "daily",
+        kind="profile",
+        extra=(
+            "launch_groups:\n"
+            "  - name: core\n"
+            "    workspace: 1\n"
+            "    applications:\n"
+            "      - id: terminal\n"
+            "        command: [wezterm]\n"
+        ),
+    )
+
+    plan_exit, plan_stdout, plan_stderr = run_cli(
+        ["plan", "profile", "daily"],
+        home=home,
+    )
+    start_exit, start_stdout, start_stderr = run_cli(
+        ["start", "daily", "--dry-run"],
+        home=home,
+    )
+
+    assert start_exit == plan_exit == 0
+    assert start_stdout == plan_stdout
+    assert start_stderr == plan_stderr == ""
