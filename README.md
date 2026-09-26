@@ -26,6 +26,7 @@ The current reference deployment provides:
 - `ws-man sysadmin NUMBER` for installed CT sysadmin workspace profiles.
 - `ws-man reroute` for the approved native-only CT live-reroute session.
 - `ws-man status` for inspecting active COSMIC application and workspace state.
+- `ws-man terminal-font` for read-only terminal font-size inventory and assessment.
 - A bootstrap script that deploys declared CT profiles, sessions, wrappers, and
   optional autostart assets as symlinks.
 
@@ -180,6 +181,7 @@ docs/                Architecture, operations, troubleshooting, and references
 - [Launch ownership](docs/architecture/launch-ownership.md)
 - [Browser boundaries](docs/architecture/browser-boundaries.md)
 - [Cold-start procedure](docs/operations/cold-start.md)
+- [Terminal-font assessment](docs/operations/terminal-fonts.md)
 - [Live-reroute procedure](docs/operations/live-reroute.md)
 - [Recovery procedure](docs/operations/recovery.md)
 - [Beta 2 operator test matrix](docs/operations/beta-2-operator-test-matrix.md)
@@ -240,6 +242,11 @@ ws-man start --dry-run
 
 # Apply one intentional timeout to every cold-start profile.
 ws-man start --timeout 180
+
+# Inspect terminal font-size targets without changing configuration.
+ws-man terminal-font status
+ws-man terminal-font plan --size 14 --target wezterm
+ws-man terminal-font plan --size 14 --all
 
 # Re-sync one existing sysadmin workspace.
 ws-man sysadmin 1

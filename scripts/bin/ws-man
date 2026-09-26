@@ -20,6 +20,8 @@ Usage:
   ws-man start [--timeout SECONDS] [--dry-run]
   ws-man sysadmin NUMBER [--timeout SECONDS] [--dry-run]
   ws-man reroute [--timeout SECONDS] [--debug] [--dry-run]
+  ws-man terminal-font status
+  ws-man terminal-font plan --size POINTS (--target TARGET | --all)
   ws-man status
   ws-man help
 
@@ -63,6 +65,17 @@ Commands:
 
       --dry-run
           Print the resolved cosmic-wm command without moving windows.
+
+  terminal-font status
+      Inspect known terminal font-size targets without changing terminal
+      configuration. Reports installed state, relevant config paths, and
+      safely discoverable current font sizes.
+
+  terminal-font plan --size POINTS (--target TARGET | --all)
+      Validate an explicit font-size request and show the non-mutating target assessment.
+      This infrastructure does not apply or persist terminal font changes.
+      Targets: wezterm, alacritty, cosmic-term, konsole, xterm,
+      xfce4-terminal.
 
   status
       Display active COSMIC applications and their workspace assignments.
@@ -155,6 +168,199 @@ run_start() {
   done
 
   printf 'Completed serial sysadmin cold start.\n'
+}
+
+terminal_font_target_is_known() {
+  case "$1" in
+    wezterm|alacritty|cosmic-term|konsole|xterm|xfce4-terminal)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+terminal_font_report_target() {
+  local target="$1"
+  local xdg_config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+  local config_path=''
+  local current_size='unknown'
+  local installed='no'
+  local route='deferred'
+
+  case "$target" in
+    wezterm)
+      if command -v wezterm >/dev/null 2>&1; then
+        installed='yes'
+      fi
+      if [[ -f "$HOME/.wezterm.lua" ]]; then
+        config_path="$HOME/.wezterm.lua"
+      elif [[ -f "$xdg_config_home/wezterm/wezterm.lua" ]]; then
+        config_path="$xdg_config_home/wezterm/wezterm.lua"
+      fi
+      if [[ -n "$config_path" ]]; then
+        current_size="$(
+          sed -nE "s/^[[:space:]]*config[.]font_size[[:space:]]*=[[:space:]]*([0-9]+([.][0-9]+)?)[[:space:]]*$/\1/p" \
+            "$config_path" | head -n 1
+        )"
+        [[ -n "$current_size" ]] || current_size='configured/unknown'
+      fi
+      route='Lua configuration review required'
+      ;;
+    alacritty)
+      if command -v alacritty >/dev/null 2>&1; then
+        installed='yes'
+      fi
+      if [[ -f "$xdg_config_home/alacritty/alacritty.toml" ]]; then
+        config_path="$xdg_config_home/alacritty/alacritty.toml"
+        current_size="$(
+          awk '
+            /^\[font\][[:space:]]*$/ { in_font=1; next }
+            /^\[/ { in_font=0 }
+            in_font && /^[[:space:]]*size[[:space:]]*=/ {
+              sub(/^[^=]*=[[:space:]]*/, "")
+              sub(/[[:space:]]*(#.*)?$/, "")
+              print
+              exit
+            }
+          ' "$config_path"
+        )"
+        [[ -n "$current_size" ]] || current_size='configured/unknown'
+      fi
+      route='TOML [font].size review required'
+      ;;
+    cosmic-term)
+      if command -v cosmic-term >/dev/null 2>&1; then
+        installed='yes'
+      fi
+      config_path="$xdg_config_home/cosmic/com.system76.CosmicTerm/v1/font_size"
+      if [[ -f "$config_path" ]]; then
+        current_size="$(cat "$config_path")"
+      else
+        config_path=''
+      fi
+      route='COSMIC preference lifecycle review required'
+      ;;
+    konsole)
+      if command -v konsole >/dev/null 2>&1; then
+        installed='yes'
+      fi
+      if [[ -f "$xdg_config_home/konsolerc" ]]; then
+        config_path="$xdg_config_home/konsolerc"
+      fi
+      route='KDE profile discovery required'
+      ;;
+    xterm)
+      if command -v xterm >/dev/null 2>&1; then
+        installed='yes'
+      fi
+      if [[ -f "$HOME/.Xresources" ]]; then
+        config_path="$HOME/.Xresources"
+      elif [[ -f "$HOME/.Xdefaults" ]]; then
+        config_path="$HOME/.Xdefaults"
+      fi
+      route='X resource review required; never create implicitly'
+      ;;
+    xfce4-terminal)
+      if command -v xfce4-terminal >/dev/null 2>&1; then
+        installed='yes'
+      fi
+      if [[ -f "$xdg_config_home/xfce4/terminal/terminalrc" ]]; then
+        config_path="$xdg_config_home/xfce4/terminal/terminalrc"
+      fi
+      route='Xfce terminalrc review required'
+      ;;
+  esac
+
+  printf 'target=%s\n' "$target"
+  printf 'installed=%s\n' "$installed"
+  printf 'config=%s\n' "${config_path:-none}"
+  printf 'current_size=%s\n' "$current_size"
+  printf 'apply_route=%s\n' "$route"
+}
+
+run_terminal_font() {
+  (($# >= 1)) ||
+    fail 'Usage: ws-man terminal-font status | plan --size POINTS (--target TARGET | --all)'
+
+  case "$1" in
+    status)
+      (($# == 1)) ||
+        fail 'Usage: ws-man terminal-font status'
+      local target
+      for target in wezterm alacritty cosmic-term konsole xterm xfce4-terminal; do
+        terminal_font_report_target "$target"
+        printf '\n'
+      done
+      ;;
+    plan)
+      shift
+      local size=''
+      local target=''
+      local all=0
+
+      while (($#)); do
+        case "$1" in
+          --size)
+            (($# >= 2)) ||
+              fail '--size requires a positive number of points.'
+            size="$2"
+            shift 2
+            ;;
+          --target)
+            (($# >= 2)) ||
+              fail '--target requires one known terminal target.'
+            target="$2"
+            shift 2
+            ;;
+          --all)
+            all=1
+            shift
+            ;;
+          -h|--help)
+            usage
+            exit 0
+            ;;
+          *)
+            fail "Unknown terminal-font plan option: $1"
+            ;;
+        esac
+      done
+
+      [[ -n "$size" ]] ||
+        fail 'Usage: ws-man terminal-font plan --size POINTS (--target TARGET | --all)'
+      is_positive_number "$size" ||
+        fail "--size must be a positive number; got: $size"
+
+      if [[ -n "$target" && "$all" -eq 1 ]]; then
+        fail 'Use exactly one of --target TARGET or --all.'
+      fi
+      if [[ -z "$target" && "$all" -eq 0 ]]; then
+        fail 'Use exactly one of --target TARGET or --all.'
+      fi
+
+      if [[ -n "$target" ]]; then
+        terminal_font_target_is_known "$target" ||
+          fail "Unknown terminal-font target: $target"
+        printf 'PLAN: requested_size=%s\n' "$size"
+        terminal_font_report_target "$target"
+        printf 'apply_status=deferred; no configuration was changed\n'
+        return 0
+      fi
+
+      printf 'PLAN: requested_size=%s\n' "$size"
+      local known_target
+      for known_target in wezterm alacritty cosmic-term konsole xterm xfce4-terminal; do
+        terminal_font_report_target "$known_target"
+        printf '\n'
+      done
+      printf 'apply_status=deferred; no configuration was changed\n'
+      ;;
+    *)
+      fail "Unknown terminal-font command: $1"
+      ;;
+  esac
 }
 
 run_profile() {
@@ -285,6 +491,9 @@ main() {
       ;;
     reroute)
       run_reroute "${@:2}"
+      ;;
+    terminal-font)
+      run_terminal_font "${@:2}"
       ;;
     status)
       (($# == 1)) || fail 'Usage: ws-man status'
