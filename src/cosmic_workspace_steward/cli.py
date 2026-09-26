@@ -10,8 +10,11 @@ from typing import Mapping, Sequence, TextIO
 import yaml
 
 from .artifacts import is_safe_logical_name
+from .cosmic_adapter import CapabilityReport
 from .discovery import DiscoveryResult, discover_artifacts
 from .errors import ArtifactError
+from .planning import plan_profile, render_plan
+from .profile_schema import validate_profile_definition
 from .xdg import resolve_artifact_roots
 
 
@@ -20,6 +23,7 @@ _USAGE = """usage:
   python -m cosmic_workspace_steward.cli sessions list
   python -m cosmic_workspace_steward.cli show profile NAME
   python -m cosmic_workspace_steward.cli show session NAME
+  python -m cosmic_workspace_steward.cli plan profile NAME
 """
 
 
@@ -92,6 +96,41 @@ def main(
         for artifact in result.artifacts:
             print(artifact.name, file=output)
         return 0
+
+    if len(arguments) == 3 and arguments[0] == "plan" and arguments[1] == "profile":
+        name = arguments[2]
+        if not is_safe_logical_name(name):
+            print(f"error: unsafe profile name: {name!r}", file=errors)
+            return 2
+
+        result = _discover(
+            environment=resolved_environment,
+            home=resolved_home,
+            kind="profile",
+            stderr=errors,
+        )
+        if result is None:
+            return 2
+
+        for artifact in result.artifacts:
+            if artifact.name == name:
+                try:
+                    profile = validate_profile_definition(artifact.artifact)
+                except ArtifactError as exc:
+                    print(f"error: {exc}", file=errors)
+                    return 1
+
+                report = CapabilityReport(
+                    command_path=None,
+                    version=None,
+                    capabilities=(),
+                    diagnostics=(),
+                )
+                print(render_plan(plan_profile(profile, report)), file=output)
+                return 0
+
+        print(f"error: profile not found: {name}", file=errors)
+        return 1
 
     if len(arguments) == 3 and arguments[0] == "show" and arguments[1] in {"profile", "session"}:
         kind, name = arguments[1], arguments[2]

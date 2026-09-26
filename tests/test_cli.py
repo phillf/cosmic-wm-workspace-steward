@@ -150,3 +150,68 @@ def test_empty_roots_are_successful_read_only_lists(tmp_path: Path) -> None:
     assert exit_code == 0
     assert stdout == ""
     assert stderr == ""
+
+
+def test_plan_profile_is_deterministic_and_does_not_probe_native_commands(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    profiles = generic_data_root(home) / "profiles"
+    write_artifact(
+        profiles,
+        "daily",
+        kind="profile",
+        extra=(
+            "launch_groups:\n"
+            "  - name: core\n"
+            "    workspace: 1\n"
+            "    applications:\n"
+            "      - id: terminal\n"
+            "        command: [wezterm]\n"
+            "      - id: browser\n"
+            "        command: [librewolf, --new-window]\n"
+            "  - name: communications\n"
+            "    workspace: 2\n"
+            "    applications:\n"
+            "      - id: slack\n"
+            "        command: [slack]\n"
+        ),
+    )
+
+    exit_code, stdout, stderr = run_cli(["plan", "profile", "daily"], home=home)
+
+    assert exit_code == 0
+    assert stderr == ""
+    assert stdout == (
+        "profile: daily\n"
+        "dry_run: true\n"
+        "001 unknown prepare-workspace-group core@workspace-1 -- "
+        "serial launch group; no workspace mutation is performed\n"
+        "002 unknown launch-application core/terminal -- argv=['wezterm']\n"
+        "003 unknown launch-application core/browser -- "
+        "argv=['librewolf', '--new-window']\n"
+        "004 unknown prepare-workspace-group communications@workspace-2 -- "
+        "serial launch group; no workspace mutation is performed\n"
+        "005 unknown launch-application communications/slack -- argv=['slack']\n"
+    )
+
+
+def test_plan_profile_rejects_invalid_body_without_creating_or_running_anything(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    profiles = generic_data_root(home) / "profiles"
+    write_artifact(profiles, "broken", kind="profile")
+
+    exit_code, stdout, stderr = run_cli(["plan", "profile", "broken"], home=home)
+
+    assert exit_code == 1
+    assert stdout == ""
+    assert "launch_groups must be a non-empty list" in stderr
+
+
+def test_plan_profile_rejects_unsafe_name_before_discovery(tmp_path: Path) -> None:
+    exit_code, stdout, stderr = run_cli(
+        ["plan", "profile", "../escape"],
+        home=tmp_path / "home",
+    )
+
+    assert exit_code == 2
+    assert stdout == ""
+    assert stderr == "error: unsafe profile name: '../escape'\n"
