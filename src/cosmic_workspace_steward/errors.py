@@ -15,3 +15,11 @@ class YamlArtifactError(ArtifactError):
     def __init__(self, path: Path, message: str) -> None:
         self.path = path
         super().__init__(f"{path}: {message}")
+
+
+class ArtifactValidationError(ArtifactError):
+    """Raised when a generic artifact violates the version-1 contract."""
+
+    def __init__(self, path: Path, message: str) -> None:
+        self.path = path
+        super().__init__(f"{path}: {message}")
