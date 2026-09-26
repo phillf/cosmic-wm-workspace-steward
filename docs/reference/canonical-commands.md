@@ -9,12 +9,22 @@
 
 Start the complete managed WS1–WS6 set:
 
-```bash
-~/.local/bin/start-sysadmin-cold
-```
+    ws-man start
 
 Use cold start when intended profile-defined applications or managed LibreWolf
-windows need to be launched.
+windows need to be launched. The default serial policy is 90 seconds for WS1
+through WS5 and 180 seconds for WS6.
+
+Preview the complete plan without launching or moving windows:
+
+    ws-man start --dry-run
+
+Apply one intentional timeout to every profile when needed:
+
+    ws-man start --timeout 180
+
+`~/.local/bin/start-sysadmin-cold` remains the desktop/autostart-compatible
+wrapper around `ws-man start`.
 
 ## Workspace profile chooser
 

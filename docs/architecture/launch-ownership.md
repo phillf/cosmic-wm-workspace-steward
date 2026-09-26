@@ -12,12 +12,13 @@ The managed graphical-login and profile-selection path is:
 
 ```text
 start-sysadmin-cold
-  -> cosmic-wm start sysadmin-ws1
-  -> cosmic-wm start sysadmin-ws2
-  -> cosmic-wm start sysadmin-ws3
-  -> cosmic-wm start sysadmin-ws4
-  -> cosmic-wm start sysadmin-ws5
-  -> cosmic-wm start sysadmin-ws6
+  -> ws-man start
+      -> cosmic-wm start sysadmin-ws1 --timeout 90
+      -> cosmic-wm start sysadmin-ws2 --timeout 90
+      -> cosmic-wm start sysadmin-ws3 --timeout 90
+      -> cosmic-wm start sysadmin-ws4 --timeout 90
+      -> cosmic-wm start sysadmin-ws5 --timeout 90
+      -> cosmic-wm start sysadmin-ws6 --timeout 180
 ```
 
 The canonical deployed command is:

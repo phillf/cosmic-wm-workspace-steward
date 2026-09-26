@@ -22,6 +22,7 @@ The current implementation is a CT-specific reference deployment operated throug
 
 The current reference deployment provides:
 
+- `ws-man start` for the canonical serial CT sysadmin cold start.
 - `ws-man sysadmin NUMBER` for installed CT sysadmin workspace profiles.
 - `ws-man reroute` for the approved native-only CT live-reroute session.
 - `ws-man status` for inspecting active COSMIC application and workspace state.
@@ -64,12 +65,24 @@ These workflows are not interchangeable.
 ### Start the managed workspace set
 
 ```bash
-~/.local/bin/start-sysadmin-cold
+ws-man start
 ```
 
-This starts `sysadmin-ws1` through `sysadmin-ws6` serially. Use it after a
-controlled login or when intended profile-defined applications, including managed
-browser windows, need to be launched.
+This starts `sysadmin-ws1` through `sysadmin-ws6` serially, using 90-second
+timeouts for WS1–WS5 and 180 seconds for WS6. Use it after a controlled login
+or when intended profile-defined applications, including managed browser windows,
+need to be launched.
+
+Preview the complete plan without launching or moving windows:
+
+    ws-man start --dry-run
+
+Override every profile timeout intentionally when needed:
+
+    ws-man start --timeout 180
+
+`~/.local/bin/start-sysadmin-cold` remains available as the desktop and
+graphical-login-autostart-compatible wrapper around `ws-man start`.
 
 ### Correct an already-open native window
 
@@ -219,6 +232,15 @@ managed command path:
 ## `ws-man` command library
 
 ```bash
+# Cold-start WS1 through WS6 serially: WS1–WS5 use 90 seconds; WS6 uses 180.
+ws-man start
+
+# Preview the six cold-start commands without launching applications or moving windows.
+ws-man start --dry-run
+
+# Apply one intentional timeout to every cold-start profile.
+ws-man start --timeout 180
+
 # Re-sync one existing sysadmin workspace.
 ws-man sysadmin 1
 ws-man sysadmin 6
@@ -240,8 +262,9 @@ ws-man reroute --timeout 45 --debug --dry-run
 ws-man status
 ```
 
-`ws-man` supports full-profile synchronization, approved native live reroute,
-and status. Managed window cleanup and category-scoped synchronization will be
+`ws-man` supports serial cold start, full-profile synchronization, approved
+native live reroute, and status. Managed window cleanup and category-scoped
+synchronization will be
 added separately after their manifests and scoped profiles are repository-owned,
 reviewed, and bootstrap-managed.
 

@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-cosmic-wm start sysadmin-ws1 --timeout 90
-cosmic-wm start sysadmin-ws2 --timeout 90
-cosmic-wm start sysadmin-ws3 --timeout 90
-cosmic-wm start sysadmin-ws4 --timeout 90
-cosmic-wm start sysadmin-ws5 --timeout 90
-cosmic-wm start sysadmin-ws6 --timeout 180
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+exec "$SCRIPT_DIR/../bin/ws-man" start "$@"

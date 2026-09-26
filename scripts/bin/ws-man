@@ -17,12 +17,26 @@ fail() {
 usage() {
   cat <<'USAGE'
 Usage:
+  ws-man start [--timeout SECONDS] [--dry-run]
   ws-man sysadmin NUMBER [--timeout SECONDS] [--dry-run]
   ws-man reroute [--timeout SECONDS] [--debug] [--dry-run]
   ws-man status
   ws-man help
 
 Commands:
+  start
+      Cold-start all sysadmin workspace profiles serially: WS1 through WS6.
+      Default timeouts preserve the established cold-start policy:
+      90 seconds for WS1–WS5 and 180 seconds for WS6.
+
+      --timeout SECONDS
+          Override the timeout for every workspace with a positive integer or
+          decimal.
+
+      --dry-run
+          Print the six resolved cosmic-wm commands without launching
+          applications or moving windows.
+
   sysadmin NUMBER
       Re-sync one existing sysadmin workspace profile. NUMBER must be 1 through 6.
       The default application/window matching timeout is 180 seconds.
@@ -54,6 +68,9 @@ Commands:
       Display active COSMIC applications and their workspace assignments.
 
 Examples:
+  ws-man start
+  ws-man start --timeout 180
+  ws-man start --dry-run
   ws-man sysadmin 1
   ws-man sysadmin 6 --timeout 300
   ws-man sysadmin 4 --dry-run
@@ -71,6 +88,73 @@ is_positive_number() {
     return 1
 
   awk -v value="$value" 'BEGIN { exit !(value > 0) }'
+}
+
+run_start() {
+  local timeout_override=''
+  local dry_run=0
+  local workspace
+  local timeout
+  local -a command
+
+  while (($#)); do
+    case "$1" in
+      --timeout)
+        (($# >= 2)) ||
+          fail '--timeout requires a positive number of seconds.'
+        timeout_override="$2"
+        shift 2
+        ;;
+      --dry-run)
+        dry_run=1
+        shift
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        fail "Unknown start option: $1"
+        ;;
+    esac
+  done
+
+  if [[ -n "$timeout_override" ]]; then
+    is_positive_number "$timeout_override" ||
+      fail "--timeout must be a positive number; got: $timeout_override"
+  fi
+
+  if (( ! dry_run )); then
+    command -v cosmic-wm >/dev/null 2>&1 ||
+      fail 'cosmic-wm is not available on PATH.'
+  fi
+
+  printf 'Cold-starting sysadmin workspace profiles serially.\n'
+
+  for workspace in 1 2 3 4 5 6; do
+    if [[ -n "$timeout_override" ]]; then
+      timeout="$timeout_override"
+    elif (( workspace == 6 )); then
+      timeout=180
+    else
+      timeout=90
+    fi
+
+    command=(cosmic-wm start "sysadmin-ws${workspace}" --timeout "$timeout")
+
+    if ((dry_run)); then
+      printf 'DRY RUN:'
+      printf ' %q' "${command[@]}"
+      printf '\n'
+      continue
+    fi
+
+    printf 'Starting sysadmin-ws%s with timeout %ss.\n' \
+      "$workspace" "$timeout"
+    "${command[@]}"
+  done
+
+  printf 'Completed serial sysadmin cold start.\n'
 }
 
 run_profile() {
@@ -191,6 +275,9 @@ main() {
   }
 
   case "$1" in
+    start)
+      run_start "${@:2}"
+      ;;
     sysadmin)
       (($# >= 2)) ||
         fail 'Usage: ws-man sysadmin NUMBER [--timeout SECONDS] [--dry-run]'

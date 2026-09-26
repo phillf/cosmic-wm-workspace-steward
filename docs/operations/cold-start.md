@@ -10,30 +10,36 @@ LibreWolf windows defined by the WS1–WS6 profiles.
 
 ## Canonical command
 
-```bash
-~/.local/bin/start-sysadmin-cold
-```
+    ws-man start
 
-The repository source is:
+`ws-man start` is the canonical CT-specific cold-start command. It starts
+these profiles serially:
 
-```text
-scripts/local-bin/start-sysadmin-cold
-```
+    sysadmin-ws1
+    sysadmin-ws2
+    sysadmin-ws3
+    sysadmin-ws4
+    sysadmin-ws5
+    sysadmin-ws6
 
-The launcher starts these profiles serially with a 90-second timeout per
-profile:
+The default timeout policy is 90 seconds for WS1 through WS5 and 180 seconds
+for WS6.
 
-```text
-sysadmin-ws1
-sysadmin-ws2
-sysadmin-ws3
-sysadmin-ws4
-sysadmin-ws5
-sysadmin-ws6
-```
+Preview the complete serial plan without launching or moving windows:
+
+    ws-man start --dry-run
+
+Override every profile timeout intentionally when needed:
+
+    ws-man start --timeout 180
+
+For desktop-launcher and graphical-login-autostart compatibility,
+`~/.local/bin/start-sysadmin-cold` remains installed as a thin wrapper around
+`ws-man start`. Its repository source is
+`scripts/local-bin/start-sysadmin-cold`.
 
 The `sysadmin` option in `~/bin/launch-workspace-profile` delegates to this
-same canonical cold-start launcher.
+same cold-start workflow.
 
 ## When to use it
 
@@ -50,7 +56,7 @@ case.
 
 ## Desktop launchers
 
-Two tracked desktop assets invoke the canonical startup path:
+Two tracked desktop assets invoke the cold-start workflow:
 
 | Asset | Purpose |
 |---|---|
@@ -59,15 +65,13 @@ Two tracked desktop assets invoke the canonical startup path:
 
 The profile chooser desktop shortcut invokes
 `~/bin/launch-workspace-profile --prompt`; selecting `sysadmin` runs the same
-cold-start launcher.
+cold-start workflow.
 
 ## Validate after startup
 
 Run:
 
-```bash
-cosmic-wm status
-```
+    cosmic-wm status
 
 Confirm expected managed applications are present in WS1 through WS6. Browser
 windows are launched by their owning profiles, but their current page title,
