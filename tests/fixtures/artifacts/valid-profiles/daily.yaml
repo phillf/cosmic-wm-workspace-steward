@@ -1,0 +1,21 @@
+version: 1
+kind: profile
+name: daily
+description: Fixture profile used for generic discovery and planning tests
+launch_groups:
+  - name: core
+    workspace: 1
+    applications:
+      - id: terminal
+        command:
+          - wezterm
+      - id: browser
+        command:
+          - librewolf
+          - --new-window
+  - name: communications
+    workspace: 2
+    applications:
+      - id: slack
+        command:
+          - slack

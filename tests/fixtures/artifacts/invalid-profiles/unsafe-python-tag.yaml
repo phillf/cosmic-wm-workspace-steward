@@ -1,0 +1,5 @@
+version: 1
+kind: profile
+name: unsafe-python-tag
+launch_groups: !!python/object/apply:os.system
+  - "echo unsafe"

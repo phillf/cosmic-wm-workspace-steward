@@ -1,0 +1,10 @@
+version: 1
+kind: profile
+name: duplicate-extension
+launch_groups:
+  - name: core
+    workspace: 1
+    applications:
+      - id: terminal
+        command:
+          - wezterm
