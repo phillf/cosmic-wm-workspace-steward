@@ -1,0 +1,13 @@
+name: sysadmin-ws1
+description: Fixture CT source profile
+monitors: []
+apps:
+  - command: spotify
+    workspace: 1
+    match:
+      class: Spotify
+  - command: /usr/bin/librewolf --new-window https://example.test/
+    workspace: 1
+    match:
+      class: librewolf
+      title: Example
