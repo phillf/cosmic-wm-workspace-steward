@@ -15,7 +15,7 @@ categories:
 workspaces:
   sysadmin:
     "3":
-      profile: profiles/sysadmin-ws3.yaml
+      profile: profiles/sysadmin/sysadmin-ws3.yaml
       applications:
         workspace-terminal:
           category: terminals
@@ -27,5 +27,5 @@ workspaces:
             class: librewolf
             title: Grafana
       scoped_profiles:
-        terminals: profiles/sysadmin-ws3-terminals.yaml
-        browsers: profiles/sysadmin-ws3-browsers.yaml
+        terminals: profiles/sysadmin/sysadmin-ws3-terminals.yaml
+        browsers: profiles/sysadmin/sysadmin-ws3-browsers.yaml

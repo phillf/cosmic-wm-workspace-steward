@@ -1,0 +1,20 @@
+version: 1
+
+defaults:
+  start:
+    timeout_seconds: 90
+    final_workspace_timeout_seconds: 180
+  reroute:
+    timeout_seconds: 30
+  purge:
+    max_attempts: 3
+    preserve_terminal_identities: true
+
+layouts:
+  sysadmin:
+    workspace_count: 6
+    reroute:
+      enabled: true
+      session: sysadmin-live-reroute
+    purge:
+      enabled: true

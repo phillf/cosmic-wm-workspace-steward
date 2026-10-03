@@ -7,7 +7,7 @@ separate.
 
 | Operation | Authoritative source | Purpose | Application scope |
 |---|---|---|---|
-| Cold start | `profiles/sysadmin-ws1.yaml` through `profiles/sysadmin-ws6.yaml` | Start the normal managed workspace set serially | Profile-defined native applications and LibreWolf windows |
+| Cold start | `profiles/sysadmin/sysadmin-ws1.yaml` through `profiles/sysadmin/sysadmin-ws6.yaml` | Start the normal managed workspace set serially | Profile-defined native applications and LibreWolf windows |
 | Live reroute | `sessions/sysadmin-managed-reroute-v1-ws1-ws6-no-stale-ws1-browser-2026-08-24.yaml` | Reassign matching already-open native windows to WS1–WS6 | Ten native application rules only |
 
 ## Native-only live reroute

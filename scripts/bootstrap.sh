@@ -165,16 +165,16 @@ ensure_dir "$applications_dir"
 
 for workspace in 1 2 3 4 5 6; do
   link_file \
-    "$repo_dir/profiles/sysadmin-ws${workspace}.yaml" \
+    "$repo_dir/profiles/sysadmin/sysadmin-ws${workspace}.yaml" \
     "$profile_dir/sysadmin-ws${workspace}.yaml"
 done
 
 link_file \
-  "$repo_dir/profiles/sysadmin-ws3-terminals.yaml" \
+  "$repo_dir/profiles/sysadmin/sysadmin-ws3-terminals.yaml" \
   "$profile_dir/sysadmin-ws3-terminals.yaml"
 
 link_file \
-  "$repo_dir/profiles/sysadmin-ws3-browsers.yaml" \
+  "$repo_dir/profiles/sysadmin/sysadmin-ws3-browsers.yaml" \
   "$profile_dir/sysadmin-ws3-browsers.yaml"
 
 link_file \

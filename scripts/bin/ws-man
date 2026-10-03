@@ -37,6 +37,10 @@ Usage:
                [--timeout SECONDS] [--debug] [--dry-run]
   ws-man layouts list
   ws-man layouts show LAYOUT [WORKSPACE_SELECTOR]
+  ws-man policies list
+  ws-man policies show LAYOUT
+  ws-man policies enable LAYOUT (reroute|purge)
+  ws-man policies disable LAYOUT (reroute|purge)
   ws-man reroute [--timeout SECONDS] [--debug] [--dry-run]
   ws-man purge [--dry-run] [--yes] [--keep-spotify] [--include-terminal]
                [--max-attempts COUNT]
@@ -60,6 +64,18 @@ Commands:
   layouts show LAYOUT [WORKSPACE_SELECTOR]
       Print the full layout definition or only selected workspace components.
       This command never starts, reroutes, moves, or closes windows.
+
+  policies
+      Inspect or modify operational policy in ws-man.config.yaml.
+
+  policies list
+      List discovered layouts and their configured enabled operations.
+
+  policies show LAYOUT
+      Show a layout's policy and discovered workspaces.
+
+  policies enable|disable LAYOUT reroute|purge
+      Change a policy operation only. This does not alter COSMIC state.
 
   reroute
       Force the approved native live reroute.
@@ -134,6 +150,37 @@ Examples:
   ws-man start sysadmin --dry-run
   ws-man start sysadmin 3-4 --dry-run
   ws-man start sysadmin 1,3,5 --cold --dry-run
+HELP
+      ;;
+    policies)
+      cat <<'HELP'
+Usage:
+  ws-man policies list
+  ws-man policies show LAYOUT
+  ws-man policies enable LAYOUT reroute
+  ws-man policies disable LAYOUT reroute
+  ws-man policies enable LAYOUT purge
+  ws-man policies disable LAYOUT purge
+
+Inspect and manage layout operational policy in ws-man.config.yaml.
+
+Commands:
+  list
+      List all layouts discovered from primary `*-wsN.yaml` files and show
+      their configured enabled operations.
+
+  show LAYOUT
+      Show policy details and discovered workspace IDs for LAYOUT.
+
+  enable LAYOUT reroute|purge
+      Enable an operation after its required configuration is present.
+
+  disable LAYOUT reroute|purge
+      Disable an operation without deleting layout YAML files.
+
+Safety:
+  Policies commands modify only ws-man.config.yaml. They never start, reroute,
+  move, close, or otherwise change COSMIC windows.
 HELP
       ;;
     layouts)
@@ -267,17 +314,17 @@ profile_file_for_workspace() {
   local root
   root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
   case "$family:$workspace" in
-    sysadmin:1) printf '%s\n' "$root/profiles/sysadmin-ws1.yaml" ;;
-    sysadmin:2) printf '%s\n' "$root/profiles/sysadmin-ws2.yaml" ;;
+    sysadmin:1) printf '%s\n' "$root/profiles/sysadmin/sysadmin-ws1.yaml" ;;
+    sysadmin:2) printf '%s\n' "$root/profiles/sysadmin/sysadmin-ws2.yaml" ;;
     sysadmin:3)
       printf '%s\n' \
-        "$root/profiles/sysadmin-ws3.yaml" \
-        "$root/profiles/sysadmin-ws3-browsers.yaml" \
-        "$root/profiles/sysadmin-ws3-terminals.yaml"
+        "$root/profiles/sysadmin/sysadmin-ws3.yaml" \
+        "$root/profiles/sysadmin/sysadmin-ws3-browsers.yaml" \
+        "$root/profiles/sysadmin/sysadmin-ws3-terminals.yaml"
       ;;
-    sysadmin:4) printf '%s\n' "$root/profiles/sysadmin-ws4.yaml" ;;
-    sysadmin:5) printf '%s\n' "$root/profiles/sysadmin-ws5.yaml" ;;
-    sysadmin:6) printf '%s\n' "$root/profiles/sysadmin-ws6.yaml" ;;
+    sysadmin:4) printf '%s\n' "$root/profiles/sysadmin/sysadmin-ws4.yaml" ;;
+    sysadmin:5) printf '%s\n' "$root/profiles/sysadmin/sysadmin-ws5.yaml" ;;
+    sysadmin:6) printf '%s\n' "$root/profiles/sysadmin/sysadmin-ws6.yaml" ;;
     *) return 1 ;;
   esac
 }
@@ -1202,6 +1249,44 @@ run_terminal_font() {
   esac
 }
 
+run_policies() {
+  local helper
+  helper="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)/ws_man_policy.py"
+
+  [[ -x "$helper" ]] ||
+    fail "Policy helper is missing or not executable: $helper"
+
+  (($# >= 1)) || fail 'Usage: ws-man policies list | ws-man policies show LAYOUT | ws-man policies enable|disable LAYOUT reroute|purge'
+
+  case "$1" in
+    list)
+      shift
+      (($# == 0)) || fail 'Usage: ws-man policies list'
+      exec python3 "$helper" list
+      ;;
+    show)
+      shift
+      (($# == 1)) || fail 'Usage: ws-man policies show LAYOUT'
+      exec python3 "$helper" list "$1"
+      ;;
+    enable|disable)
+      local action="$1"
+      shift
+      (($# == 2)) ||
+        fail 'Usage: ws-man policies enable|disable LAYOUT reroute|purge'
+      exec python3 "$helper" operation "$action" "$1" "$2"
+      ;;
+    -h|--help)
+      shift
+      (($# == 0)) || fail 'Usage: ws-man policies --help'
+      topic_help policies
+      ;;
+    *)
+      fail "Unknown policies command: $1"
+      ;;
+  esac
+}
+
 run_layouts() {
   (($# >= 1)) || fail 'Usage: ws-man layouts list | ws-man layouts show LAYOUT [WORKSPACE_SELECTOR]'
 
@@ -1238,6 +1323,10 @@ main() {
     start)
       shift
       run_start_profile "$@"
+      ;;
+    policies)
+      shift
+      run_policies "$@"
       ;;
     layouts)
       shift

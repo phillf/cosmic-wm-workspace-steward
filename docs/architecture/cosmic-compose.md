@@ -81,8 +81,8 @@ WS3 currently has two reviewed scoped cold-start profile definitions:
 
 | Category | Profile | Declared applications |
 |---|---|---|
-| `terminals` | `profiles/sysadmin-ws3-terminals.yaml` | `workspace-terminal` |
-| `browsers` | `profiles/sysadmin-ws3-browsers.yaml` | `grafana` |
+| `terminals` | `profiles/sysadmin/sysadmin-ws3-terminals.yaml` | `workspace-terminal` |
+| `browsers` | `profiles/sysadmin/sysadmin-ws3-browsers.yaml` | `grafana` |
 
 No scoped profile is declared for `communications`, `git`, or `media`, because WS3
 currently has no applications in those categories. A category's existence does not
@@ -140,7 +140,7 @@ scripts/bin/cosmic-compose profile sysadmin 3 browsers
 optional category:
 
 ```text
-Profile: profiles/sysadmin-ws3.yaml
+Profile: profiles/sysadmin/sysadmin-ws3.yaml
 Scope: terminals
 Applications:
   - workspace-terminal
@@ -155,7 +155,7 @@ manifest. It prints only the repository-relative path and performs no deployment
 or launch action:
 
 ```text
-profiles/sysadmin-ws3-terminals.yaml
+profiles/sysadmin/sysadmin-ws3-terminals.yaml
 ```
 
 If the workspace/category pair has no declared scoped profile, `profile` fails

@@ -3,12 +3,12 @@
 This inventory defines the intended applications launched by the canonical
 cold-start profiles:
 
-- `profiles/sysadmin-ws1.yaml`
-- `profiles/sysadmin-ws2.yaml`
-- `profiles/sysadmin-ws3.yaml`
-- `profiles/sysadmin-ws4.yaml`
-- `profiles/sysadmin-ws5.yaml`
-- `profiles/sysadmin-ws6.yaml`
+- `profiles/sysadmin/sysadmin-ws1.yaml`
+- `profiles/sysadmin/sysadmin-ws2.yaml`
+- `profiles/sysadmin/sysadmin-ws3.yaml`
+- `profiles/sysadmin/sysadmin-ws4.yaml`
+- `profiles/sysadmin/sysadmin-ws5.yaml`
+- `profiles/sysadmin/sysadmin-ws6.yaml`
 
 The profile YAML files are the source of truth. Update this document in the same
 commit as any profile change that adds, removes, or materially changes a
