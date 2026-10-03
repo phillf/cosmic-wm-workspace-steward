@@ -28,4 +28,4 @@ validate:
 test:
   stage: test
   script:
-    - pytest -q
+    - python3 -m pytest -q
