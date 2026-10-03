@@ -50,3 +50,50 @@ def test_rejects_missing_or_non_regular_path(tmp_path: Path) -> None:
 
     with pytest.raises(YamlArtifactError, match="existing regular file"):
         load_yaml_mapping(directory)
+
+
+def test_creates_yaml_mapping_exclusively(tmp_path: Path) -> None:
+    from cosmic_workspace_steward.yaml_io import create_yaml_mapping_exclusively
+
+    path = tmp_path / "layouts" / "sysadmin.yaml"
+
+    created = create_yaml_mapping_exclusively(
+        path,
+        {
+            "kind": "layout",
+            "name": "sysadmin",
+            "version": 1,
+            "workspace_count": 6,
+        },
+    )
+
+    assert created is True
+    assert load_yaml_mapping(path) == {
+        "kind": "layout",
+        "name": "sysadmin",
+        "version": 1,
+        "workspace_count": 6,
+    }
+
+
+def test_exclusive_yaml_mapping_creation_preserves_existing_content(
+    tmp_path: Path,
+) -> None:
+    from cosmic_workspace_steward.yaml_io import create_yaml_mapping_exclusively
+
+    path = tmp_path / "sysadmin.yaml"
+    original = "kind: layout\nname: sysadmin\nversion: 1\nworkspace_count: 4\n"
+    path.write_text(original, encoding="utf-8")
+
+    created = create_yaml_mapping_exclusively(
+        path,
+        {
+            "kind": "layout",
+            "name": "sysadmin",
+            "version": 1,
+            "workspace_count": 6,
+        },
+    )
+
+    assert created is False
+    assert path.read_text(encoding="utf-8") == original
