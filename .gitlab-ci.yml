@@ -1,0 +1,31 @@
+image: python:3.12-slim
+
+stages:
+  - validate
+  - test
+
+default:
+  interruptible: true
+  before_script:
+    - python3 --version
+    - python3 -m pip install --upgrade pip
+    - python3 -m pip install -e '.[test]'
+
+validate:
+  stage: validate
+  script:
+    - bash -n scripts/bin/ws-man
+    - bash -n scripts/bootstrap.sh
+    - bash -n completions/bash/ws-man
+    - python3 scripts/ws_man_policy.py validate
+    - |
+      if [ -n "${CI_MERGE_REQUEST_DIFF_BASE_SHA:-}" ]; then
+        git diff --check "$CI_MERGE_REQUEST_DIFF_BASE_SHA" HEAD
+      elif git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+        git diff --check HEAD^ HEAD
+      fi
+
+test:
+  stage: test
+  script:
+    - pytest -q
