@@ -1,9 +1,9 @@
-"""Safe, read-only YAML mapping loading."""
+"""Safe YAML mapping loading and exclusive artifact creation."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import yaml
 
@@ -33,3 +33,31 @@ def load_yaml_mapping(path: Path) -> dict[str, Any]:
         raise YamlArtifactError(artifact_path, "artifact root must be a YAML mapping")
 
     return document
+
+
+def create_yaml_mapping_exclusively(
+    path: Path,
+    document: Mapping[str, Any],
+) -> bool:
+    """Create one YAML mapping without replacing an existing artifact."""
+    artifact_path = Path(path)
+    rendered = yaml.safe_dump(
+        document,
+        allow_unicode=True,
+        default_flow_style=False,
+        sort_keys=True,
+    )
+
+    try:
+        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        with artifact_path.open("x", encoding="utf-8") as stream:
+            stream.write(rendered)
+    except FileExistsError:
+        return False
+    except OSError as exc:
+        raise YamlArtifactError(
+            artifact_path,
+            f"unable to create artifact: {exc.strerror or exc}",
+        ) from exc
+
+    return True

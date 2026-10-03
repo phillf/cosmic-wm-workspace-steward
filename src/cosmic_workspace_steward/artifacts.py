@@ -18,6 +18,7 @@ ARTIFACT_KINDS = frozenset(
         "session",
         "template",
         "import-draft",
+        "layout",
         "backup-manifest",
         "migration-map",
     }
