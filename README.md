@@ -38,14 +38,23 @@ general-purpose interactive installer.
 The generic architecture is documented in
 [`docs/design/cosmic-workspace-steward-design.md`](docs/design/cosmic-workspace-steward-design.md).
 
-An initial generic, non-mutating Python core is implemented. It resolves
-user-owned XDG artifact roots and safely loads non-empty YAML mappings. It does
-not yet provide generic `ws-man` commands, artifact discovery, COSMIC adapter
-probing, dry-run planning, import, migration, apply, restore, or desktop
-mutation.
+The project includes an initial generic, safety-first artifact workflow:
 
-For executable non-production checks and the current capability boundary, see
-the [Beta 2 operator test matrix](docs/operations/beta-2-operator-test-matrix.md).
+- User-owned XDG artifact-root resolution.
+- Validation and safe loading of non-empty YAML mappings.
+- Read-only artifact discovery and inspection.
+- COSMIC capability probing without desktop mutation.
+- Deterministic dry-run planning.
+- Fixture-based validation, discovery, planning, and import-draft coverage.
+- Review-only CT profile import drafts.
+
+The generic workflow does not yet apply, migrate, restore, promote, or otherwise
+mutate arbitrary desktop workspace state. Treat generated plans and import drafts
+as review artifacts until an explicit apply workflow is implemented and validated.
+
+For the validated release boundary, see the
+[Beta 3 operator validation](docs/operations/beta-3-operator-validation.md).
+
 ## Scope
 
 WS1 through WS6 are the managed operational workspace range. WS7 is a protected
@@ -185,9 +194,16 @@ docs/                Architecture, operations, troubleshooting, and references
 - [Live-reroute procedure](docs/operations/live-reroute.md)
 - [Recovery procedure](docs/operations/recovery.md)
 - [Beta 2 operator test matrix](docs/operations/beta-2-operator-test-matrix.md)
+- [Beta 3 operator validation](docs/operations/beta-3-operator-validation.md)
 - [Canonical commands](docs/reference/canonical-commands.md)
 - [Expected workspace windows](docs/reference/expected-workspace-windows.md)
 - [Legacy tool inventory](docs/reference/legacy-tool-inventory.md)
+
+## Versioning
+
+Git tags are the authoritative release identifiers for this repository. The
+internal Python package currently reports `0.0.0` because it is not published as
+an independently versioned distribution.
 
 ## Deployment
 
