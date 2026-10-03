@@ -79,4 +79,4 @@ YYYY.MM.REVISION[-PRERELEASE.N]
   month's documented release train.
 
 `2026.9.1-beta.3` is the September 2026 release closeout. New work beginning
-in October belongs to `2026.10.0-beta.1` or a later October release milestone.
+in October belongs to `2026.10.0` or a later October release milestone.

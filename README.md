@@ -207,7 +207,7 @@ an independently versioned distribution.
 
 The project uses calendar versioning in the form
 `YYYY.MM.REVISION[-PRERELEASE.N]`. The current September closeout is
-`2026.9.1-beta.3`; new October work belongs to `2026.10.0-beta.1` or a later
+`2026.9.1-beta.3`; new October work belongs to `2026.10.0` or a later
 October release milestone. See the
 [Beta 3 operator validation](docs/operations/beta-3-operator-validation.md)
 for the full policy.
