@@ -1,0 +1,253 @@
+# Bash completion for ws-man.
+#
+# Current-session load:
+#   source ~/Projects/ct/cosmic-wm-workspace-steward/completions/bash/ws-man
+#
+# Persistent per-user install:
+#   mkdir -p ~/.local/share/bash-completion/completions
+#   ln -sfn \
+#     ~/Projects/ct/cosmic-wm-workspace-steward/completions/bash/ws-man \
+#     ~/.local/share/bash-completion/completions/ws-man
+
+# Top-level operations. Profile names intentionally do not appear here.
+_ws_man_commands=(
+  help
+  layouts
+  purge
+  reroute
+  start
+  status
+  terminal-font
+)
+
+# Available profile names. Keep this list aligned with the profile registry.
+_ws_man_profiles=(
+  sysadmin
+)
+
+# Workspace partitions for each profile family.
+_ws_man_sysadmin_workspaces=(
+  1
+  2
+  3
+  4
+  5
+  6
+)
+
+_ws_man_option_requires_value() {
+  case "${1:-}" in
+    --timeout|--max-attempts|--size|--target)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+_ws_man_complete_profile() {
+  local cur="${1:-}"
+  COMPREPLY=( $(compgen -W "${_ws_man_profiles[*]}" -- "$cur") )
+}
+
+_ws_man_complete_sysadmin_selector() {
+  local cur="${1:-}"
+  local prefix fragment
+  local -a values=()
+  local candidate
+
+  # For a comma-separated selector, preserve everything before the final
+  # comma and complete only the final token.
+  prefix=""
+  fragment="$cur"
+  if [[ "$cur" == *,* ]]; then
+    prefix="${cur%,*},"
+    fragment="${cur##*,}"
+  fi
+
+  for candidate in "${_ws_man_sysadmin_workspaces[@]}"; do
+    values+=("${prefix}${candidate}")
+  done
+
+  # Offer ranges only for a fresh selector token. The parser accepts mixed
+  # selectors such as 1-2,4,6 even though completion favors simple values
+  # after a comma.
+  if [[ -z "$prefix" ]]; then
+    values+=(
+      1-2 1-3 1-4 1-5 1-6
+      2-3 2-4 2-5 2-6
+      3-4 3-5 3-6
+      4-5 4-6
+      5-6
+    )
+  fi
+
+  COMPREPLY=( $(compgen -W "${values[*]}" -- "$cur") )
+}
+
+_ws_man_complete_profile_target() {
+  local cur="${1:-}"
+  local profile="${2:-}"
+
+  case "$profile" in
+    sysadmin)
+      _ws_man_complete_sysadmin_selector "$cur"
+      ;;
+    *)
+      COMPREPLY=()
+      ;;
+  esac
+}
+
+_ws_man_completion() {
+  local cur prev command profile
+  local -a words root_candidates
+
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD - 1]:-}"
+  words=("${COMP_WORDS[@]}")
+  command="${words[1]:-}"
+  profile="${words[2]:-}"
+  root_candidates=("${_ws_man_commands[@]}")
+
+  # Root: operations only. Profile families are intentionally absent.
+  if (( COMP_CWORD == 1 )); then
+    COMPREPLY=( $(compgen -W "${root_candidates[*]}" -- "$cur") )
+    return 0
+  fi
+
+  case "$command" in
+    help)
+      if (( COMP_CWORD == 2 )); then
+        COMPREPLY=(
+          $(compgen -W 'start layouts reroute purge status terminal-font' -- "$cur")
+        )
+      else
+        COMPREPLY=()
+      fi
+      return 0
+      ;;
+
+    start)
+      # ws-man start <PROFILE> [WORKSPACE_SELECTOR] [OPTIONS]
+      if (( COMP_CWORD == 2 )); then
+        _ws_man_complete_profile "$cur"
+        return 0
+      fi
+
+      if _ws_man_option_requires_value "$prev"; then
+        return 0
+      fi
+
+      case "$profile" in
+        sysadmin)
+          if (( COMP_CWORD == 3 )); then
+            COMPREPLY=(
+              $(compgen -W \
+                "${_ws_man_sysadmin_workspaces[*]} \
+                 1-2 1-3 1-4 1-5 1-6 \
+                 2-3 2-4 2-5 2-6 \
+                 3-4 3-5 3-6 \
+                 4-5 4-6 5-6 \
+                 --cold --reroute --timeout --debug --dry-run --help" \
+                -- "$cur")
+            )
+          else
+            COMPREPLY=(
+              $(compgen -W \
+                "--cold --reroute --timeout --debug --dry-run --help" \
+                -- "$cur")
+            )
+          fi
+          ;;
+      esac
+      return 0
+      ;;
+
+    layouts)
+      # ws-man layouts list
+      # ws-man layouts show LAYOUT [WORKSPACE_SELECTOR]
+      if (( COMP_CWORD == 2 )); then
+        COMPREPLY=( $(compgen -W 'list show --help' -- "$cur") )
+        return 0
+      fi
+
+      case "${words[2]:-}" in
+        show)
+          if (( COMP_CWORD == 3 )); then
+            _ws_man_complete_profile "$cur"
+          elif (( COMP_CWORD == 4 )); then
+            _ws_man_complete_profile_target "$cur" "${words[3]:-}"
+          fi
+          ;;
+      esac
+      return 0
+      ;;
+
+    purge)
+      if _ws_man_option_requires_value "$prev"; then
+        return 0
+      fi
+      COMPREPLY=(
+        $(compgen -W \
+          '--dry-run --yes --keep-spotify --include-terminal --max-attempts --help' \
+          -- "$cur")
+      )
+      return 0
+      ;;
+
+    reroute)
+      if _ws_man_option_requires_value "$prev"; then
+        return 0
+      fi
+      COMPREPLY=(
+        $(compgen -W '--timeout --debug --dry-run --help' -- "$cur")
+      )
+      return 0
+      ;;
+
+    terminal-font)
+      if (( COMP_CWORD == 2 )); then
+        COMPREPLY=( $(compgen -W 'status plan --help' -- "$cur") )
+        return 0
+      fi
+
+      case "${words[2]:-}" in
+        plan)
+          case "$prev" in
+            --target)
+              COMPREPLY=(
+                $(compgen -W \
+                  'wezterm alacritty cosmic-term konsole xterm xfce4-terminal' \
+                  -- "$cur")
+              )
+              ;;
+            --size)
+              COMPREPLY=()
+              ;;
+            *)
+              COMPREPLY=(
+                $(compgen -W '--size --target --all --help' -- "$cur")
+              )
+              ;;
+          esac
+          ;;
+      esac
+      return 0
+      ;;
+
+    status|help)
+      COMPREPLY=()
+      return 0
+      ;;
+
+    *)
+      COMPREPLY=()
+      return 0
+      ;;
+  esac
+}
+
+complete -F _ws_man_completion ws-man

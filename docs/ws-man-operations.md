@@ -172,3 +172,39 @@ ws-man terminal-font plan --size 14 --all
 
 Terminal-font commands inspect and plan only; they do not write terminal
 configuration.
+
+## Bash completion
+
+The Bash completion definition is repository-managed at:
+
+```text
+completions/bash/ws-man
+```
+
+It completes `ws-man` subcommands, workspace numbers, supported flags, and
+terminal-font targets.
+
+Install it for the current user:
+
+```bash
+mkdir -p ~/.local/share/bash-completion/completions
+
+ln -sfn \
+  ~/Projects/ct/cosmic-wm-workspace-steward/completions/bash/ws-man \
+  ~/.local/share/bash-completion/completions/ws-man
+```
+
+Load it in the current Bash shell:
+
+```bash
+source ~/Projects/ct/cosmic-wm-workspace-steward/completions/bash/ws-man
+```
+
+Useful completion points:
+
+```bash
+ws-man <Tab><Tab>
+ws-man sysadmin <Tab><Tab>
+ws-man purge --<Tab><Tab>
+ws-man terminal-font plan --target <Tab><Tab>
+```

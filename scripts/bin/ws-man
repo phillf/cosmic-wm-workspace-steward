@@ -33,8 +33,10 @@ fail() {
 usage() {
   cat <<'USAGE'
 Usage:
-  ws-man sysadmin [NUMBER] [--cold|--reroute] [--timeout SECONDS] [--debug] [--dry-run]
-  ws-man start [--timeout SECONDS] [--dry-run]
+  ws-man start PROFILE [WORKSPACE_SELECTOR] [--cold|--reroute]
+               [--timeout SECONDS] [--debug] [--dry-run]
+  ws-man layouts list
+  ws-man layouts show LAYOUT [WORKSPACE_SELECTOR]
   ws-man reroute [--timeout SECONDS] [--debug] [--dry-run]
   ws-man purge [--dry-run] [--yes] [--keep-spotify] [--include-terminal]
                [--max-attempts COUNT]
@@ -43,37 +45,40 @@ Usage:
   ws-man status
   ws-man help
 
-Primary sysadmin commands:
-  sysadmin
-      Reconcile the full sysadmin layout. In automatic mode, run the approved
-      native live reroute when supported managed native windows are present;
-      otherwise perform the serial WS1 through WS6 cold start.
+Commands:
+  start PROFILE [WORKSPACE_SELECTOR]
+      Start/reconcile a layout. With no selector, sysadmin uses the existing
+      automatic mode: approved live reroute when managed native windows are
+      present; otherwise serial cold start across WS1 through WS6.
 
-  sysadmin NUMBER
-      Re-sync one sysadmin workspace profile. NUMBER must be 1 through 6.
+  layouts
+      Read-only workspace-layout inspection.
 
-  sysadmin --cold
-      Force the serial WS1 through WS6 cold start.
+  layouts list
+      List available layouts discovered from primary layout files.
 
-  sysadmin --reroute
-      Force the approved native live reroute.
-
-Compatibility commands:
-  start
-      Alias for: ws-man sysadmin --cold
+  layouts show LAYOUT [WORKSPACE_SELECTOR]
+      Print the full layout definition or only selected workspace components.
+      This command never starts, reroutes, moves, or closes windows.
 
   reroute
-      Alias for: ws-man sysadmin --reroute
+      Force the approved native live reroute.
 
-Purge:
-  purge --dry-run
-      List individual COSMIC windows and the preserve/close plan. No changes.
+  purge
+      List or close eligible COSMIC windows. Separate from layout operations.
 
-  purge --yes
-      Close eligible windows one at a time. Inventory is refreshed before every
-      close request. The command preserves known terminal identities by default.
+Layouts:
+  sysadmin
+      Six-part workspace layout family.
+
+Workspace selectors:
+  N           One workspace, for example: 1
+  N-N         Inclusive range, for example: 3-4
+  N,N,N       Explicit set, for example: 1,3,5
+  Mixed       Combined form, for example: 1-2,4,6
 
 Safety boundaries:
+  - `layouts` is read-only and never invokes cosmic-wm.
   - Native live reroute uses the approved sysadmin-live-reroute snapshot.
   - LibreWolf/browser windows are intentionally excluded from live reroute.
   - Reroute does not create, close, move, or restore browser windows/state.
@@ -82,17 +87,156 @@ Safety boundaries:
   - Use --dry-run before state-changing commands.
 
 Examples:
-  ws-man sysadmin --dry-run
-  ws-man sysadmin
-  ws-man sysadmin 3 --dry-run
-  ws-man sysadmin --cold --dry-run
-  ws-man sysadmin --reroute --dry-run
+  ws-man layouts list
+  ws-man layouts show sysadmin
+  ws-man layouts show sysadmin 3-4
+  ws-man layouts show sysadmin 1,3,5
+  ws-man start sysadmin --dry-run
+  ws-man start sysadmin 3-4 --dry-run
+  ws-man start sysadmin 1,3,5 --cold --dry-run
+  ws-man start sysadmin --reroute --dry-run
   ws-man purge --dry-run
-  ws-man purge --yes
-  ws-man purge --yes --keep-spotify
-  ws-man purge --yes --include-terminal
   ws-man status
 USAGE
+}
+topic_help() {
+  local topic="${1:-}"
+
+  case "$topic" in
+    start)
+      cat <<'HELP'
+Usage:
+  ws-man start sysadmin [WORKSPACE_SELECTOR] [--cold|--reroute]
+                       [--timeout SECONDS] [--debug] [--dry-run]
+
+Start or reconcile the sysadmin profile.
+
+Without a workspace selector, automatic mode uses approved live reroute when
+supported managed native windows are present; otherwise it cold-starts WS1–WS6.
+
+With a workspace selector, only those profile partitions are started. A
+selector cannot be combined with --reroute or --debug.
+
+Workspace selectors:
+  1           Start only WS1
+  3-4         Start WS3 and WS4
+  1,3,5       Start WS1, WS3, and WS5
+  1-2,4,6     Start WS1, WS2, WS4, and WS6
+
+Options:
+  --cold              Force full serial WS1–WS6 cold start
+  --reroute           Force full approved native live reroute
+  --timeout SECONDS   Use a positive timeout
+  --debug             Enable live-reroute diagnostics; full profile only
+  --dry-run           Print commands without starting profiles
+
+Examples:
+  ws-man start sysadmin --dry-run
+  ws-man start sysadmin 3-4 --dry-run
+  ws-man start sysadmin 1,3,5 --cold --dry-run
+HELP
+      ;;
+    layouts)
+      cat <<'HELP'
+Usage:
+  ws-man layouts list
+  ws-man layouts show LAYOUT [WORKSPACE_SELECTOR]
+
+Inspect workspace layout definitions without changing COSMIC state.
+
+Commands:
+  list
+      List available layouts discovered from primary `*-wsN.yaml` files.
+
+  show LAYOUT
+      Print all workspace components belonging to LAYOUT.
+
+  show LAYOUT WORKSPACE_SELECTOR
+      Print only the selected workspace components.
+
+Workspace selectors:
+  1           Show only WS1
+  3-4         Show WS3 and WS4
+  1,3,5       Show WS1, WS3, and WS5
+  1-2,4,6     Show WS1, WS2, WS4, and WS6
+
+Examples:
+  ws-man layouts list
+  ws-man layouts show sysadmin
+  ws-man layouts show sysadmin 3-4
+  ws-man layouts show sysadmin 1,3,5
+
+Safety:
+  This command never starts, reroutes, moves, or closes windows.
+HELP
+      ;;
+    reroute)
+      cat <<'HELP'
+Usage:
+  ws-man reroute [--timeout SECONDS] [--debug] [--dry-run]
+
+Force the approved full native live-reroute workflow.
+
+Options:
+  --timeout SECONDS   Use a positive timeout
+  --debug             Enable diagnostics
+  --dry-run           Print planned actions without changing state
+
+Safety:
+  Live reroute excludes LibreWolf/browser windows. It does not create, close,
+  move, or restore browser state; restore tile geometry; alter split ratios or
+  stacks; or affect WS7.
+HELP
+      ;;
+    purge)
+      cat <<'HELP'
+Usage:
+  ws-man purge [--dry-run] [--yes] [--keep-spotify] [--include-terminal]
+               [--max-attempts COUNT]
+
+Inventory and optionally close eligible COSMIC windows.
+
+Options:
+  --dry-run               List the preserve/close plan only
+  --yes                   Perform eligible close requests
+  --keep-spotify          Preserve Spotify when closing windows
+  --include-terminal      Allow eligible terminal windows to be considered
+  --max-attempts COUNT    Maximum close attempts per eligible target
+
+Safety:
+  Purge is separate from reroute. Inventory is refreshed before each close
+  request, and known terminal identities are preserved by default.
+HELP
+      ;;
+    status)
+      cat <<'HELP'
+Usage:
+  ws-man status
+
+Run `cosmic-wm status`.
+
+This command accepts no additional arguments.
+HELP
+      ;;
+    terminal-font)
+      cat <<'HELP'
+Usage:
+  ws-man terminal-font status
+  ws-man terminal-font plan --size POINTS (--target TARGET | --all)
+
+Inspect terminal-font configuration or print an application plan.
+
+Known targets:
+  wezterm, alacritty, cosmic-term, konsole, xterm, xfce4-terminal
+HELP
+      ;;
+    help|'')
+      usage
+      ;;
+    *)
+      fail "Unknown help topic: $topic"
+      ;;
+  esac
 }
 
 is_positive_number() {
@@ -117,6 +261,152 @@ require_cosmic_wm() {
   require_command cosmic-wm
 }
 
+profile_file_for_workspace() {
+  local family="$1"
+  local workspace="$2"
+  local root
+  root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+  case "$family:$workspace" in
+    sysadmin:1) printf '%s\n' "$root/profiles/sysadmin-ws1.yaml" ;;
+    sysadmin:2) printf '%s\n' "$root/profiles/sysadmin-ws2.yaml" ;;
+    sysadmin:3)
+      printf '%s\n' \
+        "$root/profiles/sysadmin-ws3.yaml" \
+        "$root/profiles/sysadmin-ws3-browsers.yaml" \
+        "$root/profiles/sysadmin-ws3-terminals.yaml"
+      ;;
+    sysadmin:4) printf '%s\n' "$root/profiles/sysadmin-ws4.yaml" ;;
+    sysadmin:5) printf '%s\n' "$root/profiles/sysadmin-ws5.yaml" ;;
+    sysadmin:6) printf '%s\n' "$root/profiles/sysadmin-ws6.yaml" ;;
+    *) return 1 ;;
+  esac
+}
+
+parse_workspace_selector() {
+  local selector="${1:-}"
+  local token start end workspace
+  local -A selected=()
+
+  WS_MAN_SELECTED_WORKSPACES=()
+
+  [[ -n "$selector" ]] || return 0
+
+  [[ "$selector" =~ ^[0-9]+(-[0-9]+)?(,[0-9]+(-[0-9]+)?)*$ ]] || {
+    fail "Invalid workspace selector: $selector. Use 1, 3-4, 1,3,5, or 1-2,4,6."
+  }
+
+  local -a selector_tokens=()
+  IFS=',' read -r -a selector_tokens <<< "$selector"
+
+  for token in "${selector_tokens[@]}"; do
+    if [[ "$token" == *-* ]]; then
+      start="${token%-*}"
+      end="${token#*-}"
+
+      (( start <= end )) ||
+        fail "Invalid workspace range: $token."
+
+      for ((workspace = start; workspace <= end; workspace++)); do
+        (( workspace >= PROFILE_WORKSPACE_MIN && workspace <= PROFILE_WORKSPACE_MAX )) ||
+          fail "Unsupported $DEFAULT_PROFILE_FAMILY workspace $workspace; supported range is $PROFILE_WORKSPACE_MIN through $PROFILE_WORKSPACE_MAX."
+        selected["$workspace"]=1
+      done
+    else
+      workspace="$token"
+      (( workspace >= PROFILE_WORKSPACE_MIN && workspace <= PROFILE_WORKSPACE_MAX )) ||
+        fail "Unsupported $DEFAULT_PROFILE_FAMILY workspace $workspace; supported range is $PROFILE_WORKSPACE_MIN through $PROFILE_WORKSPACE_MAX."
+      selected["$workspace"]=1
+    fi
+  done
+
+  mapfile -t WS_MAN_SELECTED_WORKSPACES < <(
+    printf '%s\n' "${!selected[@]}" | sort -n
+  )
+}
+
+parse_start_options() {
+  START_MODE='auto'
+  START_TIMEOUT=''
+  START_DRY_RUN=0
+  START_DEBUG=0
+
+  while (($#)); do
+    case "$1" in
+      --cold)
+        [[ "$START_MODE" == 'auto' ]] ||
+          fail 'Choose only one of --cold or --reroute.'
+        START_MODE='cold'
+        shift
+        ;;
+      --reroute)
+        [[ "$START_MODE" == 'auto' ]] ||
+          fail 'Choose only one of --cold or --reroute.'
+        START_MODE='reroute'
+        shift
+        ;;
+      --timeout)
+        (($# >= 2)) ||
+          fail '--timeout requires a positive number of seconds.'
+        START_TIMEOUT="$2"
+        shift 2
+        ;;
+      --debug)
+        START_DEBUG=1
+        shift
+        ;;
+      --dry-run)
+        START_DRY_RUN=1
+        shift
+        ;;
+      -h|--help)
+        topic_help start
+        exit 0
+        ;;
+      *)
+        fail "Unknown start option: $1"
+        ;;
+    esac
+  done
+
+  if [[ -n "$START_TIMEOUT" ]]; then
+    is_positive_number "$START_TIMEOUT" ||
+      fail "--timeout must be a positive number; got: $START_TIMEOUT"
+  fi
+}
+
+run_start_selected() {
+  local timeout_override="$1"
+  local dry_run="$2"
+  shift 2
+
+  local workspace timeout
+  local -a command
+
+  (( dry_run )) || require_cosmic_wm
+
+  for workspace in "$@"; do
+    if [[ -n "$timeout_override" ]]; then
+      timeout="$timeout_override"
+    elif (( workspace == 6 )); then
+      timeout=180
+    else
+      timeout=90
+    fi
+
+    command=(cosmic-wm start "sysadmin-ws${workspace}" --timeout "$timeout")
+
+    if (( dry_run )); then
+      printf 'DRY RUN:'
+      printf ' %q' "${command[@]}"
+      printf '\n'
+      continue
+    fi
+
+    printf 'Starting sysadmin-ws%s with timeout %ss.\n' "$workspace" "$timeout"
+    "${command[@]}"
+  done
+}
+
 run_start() {
   local timeout_override=''
   local dry_run=0
@@ -137,7 +427,7 @@ run_start() {
         shift
         ;;
       -h|--help)
-        usage
+        topic_help start
         exit 0
         ;;
       *)
@@ -152,7 +442,6 @@ run_start() {
   fi
 
   (( dry_run )) || require_cosmic_wm
-
   printf 'Cold-starting sysadmin workspace profiles serially.\n'
 
   for workspace in 1 2 3 4 5 6; do
@@ -173,8 +462,7 @@ run_start() {
       continue
     fi
 
-    printf 'Starting sysadmin-ws%s with timeout %ss.\n' \
-      "$workspace" "$timeout"
+    printf 'Starting sysadmin-ws%s with timeout %ss.\n' "$workspace" "$timeout"
     "${command[@]}"
   done
 
@@ -225,7 +513,6 @@ run_profile() {
     fail "--timeout must be a positive number; got: $timeout"
 
   (( dry_run )) || require_cosmic_wm
-
   profile_name="${family}-ws${workspace}"
 
   if (( dry_run )); then
@@ -238,6 +525,104 @@ run_profile() {
   exec cosmic-wm start "$profile_name" --timeout "$timeout"
 }
 
+run_profile_show() {
+  local family="${1:-}"
+  local selector="${2:-}"
+  local workspace file
+
+  if [[ "$family" == '-h' || "$family" == '--help' ]]; then
+    [[ -z "$selector" ]] || fail 'Usage: ws-man layouts show LAYOUT [WORKSPACE_SELECTOR]'
+    topic_help layouts
+    return 0
+  fi
+
+  if [[ -z "$family" ]]; then
+    printf '%s\n' "$DEFAULT_PROFILE_FAMILY"
+    return 0
+  fi
+
+  [[ "$family" == "$DEFAULT_PROFILE_FAMILY" ]] ||
+    fail "Unsupported profile family: $family"
+
+  if [[ -z "$selector" ]]; then
+    WS_MAN_SELECTED_WORKSPACES=(1 2 3 4 5 6)
+  else
+    parse_workspace_selector "$selector"
+  fi
+
+  for workspace in "${WS_MAN_SELECTED_WORKSPACES[@]}"; do
+    while IFS= read -r file; do
+      [[ -f "$file" ]] || fail "Missing profile file: $file"
+      printf '%s\n' "--- $file"
+      cat -- "$file"
+      printf '\n'
+    done < <(profile_file_for_workspace "$family" "$workspace")
+  done
+}
+
+run_start_profile() {
+  local family="${1:-}"
+  local selector=''
+
+  if [[ "$family" == '-h' || "$family" == '--help' ]]; then
+    topic_help start
+    return 0
+  fi
+
+  [[ -n "$family" ]] ||
+    fail 'Usage: ws-man start PROFILE [WORKSPACE_SELECTOR] [OPTIONS]'
+
+  [[ "$family" == "$DEFAULT_PROFILE_FAMILY" ]] ||
+    fail "Unsupported profile family: $family"
+
+  shift
+
+  if [[ "${1:-}" != -* && -n "${1:-}" ]]; then
+    selector="$1"
+    shift
+  fi
+
+  parse_start_options "$@"
+
+  if [[ -n "$selector" ]]; then
+    [[ "$START_MODE" != 'reroute' ]] ||
+      fail '--reroute cannot be combined with a workspace selector.'
+
+    parse_workspace_selector "$selector"
+
+    (( START_DEBUG == 0 )) ||
+      fail '--debug is supported only with full live reroute.'
+
+    run_start_selected \
+      "$START_TIMEOUT" \
+      "$START_DRY_RUN" \
+      "${WS_MAN_SELECTED_WORKSPACES[@]}"
+    return 0
+  fi
+
+  if [[ "$START_MODE" == 'reroute' ]]; then
+    local -a reroute_args=()
+    [[ -n "$START_TIMEOUT" ]] && reroute_args+=(--timeout "$START_TIMEOUT")
+    (( START_DEBUG )) && reroute_args+=(--debug)
+    (( START_DRY_RUN )) && reroute_args+=(--dry-run)
+    run_reroute "${reroute_args[@]}"
+    return 0
+  fi
+
+  if [[ "$START_MODE" == 'cold' ]]; then
+    local -a cold_args=()
+    [[ -n "$START_TIMEOUT" ]] && cold_args+=(--timeout "$START_TIMEOUT")
+    (( START_DRY_RUN )) && cold_args+=(--dry-run)
+    run_start "${cold_args[@]}"
+    return 0
+  fi
+
+  local -a auto_args=()
+  [[ -n "$START_TIMEOUT" ]] && auto_args+=(--timeout "$START_TIMEOUT")
+  (( START_DEBUG )) && auto_args+=(--debug)
+  (( START_DRY_RUN )) && auto_args+=(--dry-run)
+  run_sysadmin_all "${auto_args[@]}"
+}
 run_reroute() {
   local timeout="$REROUTE_DEFAULT_TIMEOUT"
   local debug=0
@@ -817,6 +1202,32 @@ run_terminal_font() {
   esac
 }
 
+run_layouts() {
+  (($# >= 1)) || fail 'Usage: ws-man layouts list | ws-man layouts show LAYOUT [WORKSPACE_SELECTOR]'
+
+  case "$1" in
+    list)
+      shift
+      (($# == 0)) || fail 'Usage: ws-man layouts list'
+      run_profile_show
+      ;;
+    show)
+      shift
+      (($# >= 1 && $# <= 2)) ||
+        fail 'Usage: ws-man layouts show LAYOUT [WORKSPACE_SELECTOR]'
+      run_profile_show "${1:-}" "${2:-}"
+      ;;
+    -h|--help)
+      shift
+      (($# == 0)) || fail 'Usage: ws-man layouts --help'
+      topic_help layouts
+      ;;
+    *)
+      fail "Unknown layouts command: $1"
+      ;;
+  esac
+}
+
 main() {
   (($# >= 1)) || {
     usage
@@ -824,20 +1235,13 @@ main() {
   }
 
   case "$1" in
-    sysadmin)
-      shift
-
-      if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
-        local workspace="$1"
-        shift
-        run_profile "$DEFAULT_PROFILE_FAMILY" "$workspace" "$@"
-      else
-        run_sysadmin_all "$@"
-      fi
-      ;;
     start)
       shift
-      run_start "$@"
+      run_start_profile "$@"
+      ;;
+    layouts)
+      shift
+      run_layouts "$@"
       ;;
     reroute)
       shift
@@ -859,13 +1263,12 @@ main() {
       ;;
     help|-h|--help)
       shift
-      (($# == 0)) || fail 'Usage: ws-man help'
-      usage
+      (($# <= 1)) || fail 'Usage: ws-man help [COMMAND]'
+      topic_help "${1:-}"
       ;;
     *)
       fail "Unknown command: $1"
       ;;
   esac
 }
-
 main "$@"
