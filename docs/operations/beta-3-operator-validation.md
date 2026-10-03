@@ -63,3 +63,20 @@ The `develop` branch is protected:
 Git tags are the authoritative release identifiers for this repository. The
 internal Python package remains at version `0.0.0` because it is not published
 as an independently versioned distribution.
+
+The project uses calendar versioning:
+
+```text
+YYYY.MM.REVISION[-PRERELEASE.N]
+```
+
+- `YYYY` is the release-train year.
+- `MM` is the release-train month.
+- `REVISION` increments for materially distinct releases in that month and
+  resets when the month changes.
+- `-beta.N` identifies an unstable beta in that monthly release train.
+- A release can be tagged shortly after month end when completing the prior
+  month's documented release train.
+
+`2026.9.1-beta.3` is the September 2026 release closeout. New work beginning
+in October belongs to `2026.10.0-beta.1` or a later October release milestone.

@@ -205,6 +205,13 @@ Git tags are the authoritative release identifiers for this repository. The
 internal Python package currently reports `0.0.0` because it is not published as
 an independently versioned distribution.
 
+The project uses calendar versioning in the form
+`YYYY.MM.REVISION[-PRERELEASE.N]`. The current September closeout is
+`2026.9.1-beta.3`; new October work belongs to `2026.10.0-beta.1` or a later
+October release milestone. See the
+[Beta 3 operator validation](docs/operations/beta-3-operator-validation.md)
+for the full policy.
+
 ## Deployment
 
 The repository is the source of truth. The bootstrap deploys repository-managed
