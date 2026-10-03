@@ -5,6 +5,12 @@ layout. It supports a full-layout reconciliation decision, individual workspace
 re-sync, live native-window reroute, serial cold start, safe window purge, and
 read-only status inspection.
 
+> **Beta safety boundary:** Test this tooling in a non-production COSMIC session
+> before operational use. Run `--dry-run` before every workflow that can launch,
+> move, or close windows. Save work before `ws-man purge --yes`; applications
+> can prompt for unsaved data or decline a normal close request. This project
+> does not replace backups or desktop-session recovery procedures.
+
 ## Quick reference
 
 ```bash
