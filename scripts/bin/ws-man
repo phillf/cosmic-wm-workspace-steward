@@ -9,6 +9,22 @@ PROFILE_WORKSPACE_MAX=6
 REROUTE_DEFAULT_TIMEOUT=30
 DEFAULT_REROUTE_SESSION='sysadmin-live-reroute'
 
+PURGE_DEFAULT_MAX_ATTEMPTS=3
+
+MANAGED_NATIVE_APP_IDS=(
+  'Spotify'
+  'me.creativetech.terminal.workspace2'
+  'me.creativetech.terminal.workspace3'
+  'me.creativetech.terminal.workspace4'
+  'code'
+  'com.microsoft.VSCode'
+  'discord'
+  'slack'
+  'Mattermost.Desktop'
+  'signal'
+  'gitkraken'
+)
+
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
   exit 2
@@ -17,79 +33,64 @@ fail() {
 usage() {
   cat <<'USAGE'
 Usage:
+  ws-man sysadmin [NUMBER] [--cold|--reroute] [--timeout SECONDS] [--debug] [--dry-run]
   ws-man start [--timeout SECONDS] [--dry-run]
-  ws-man sysadmin NUMBER [--timeout SECONDS] [--dry-run]
   ws-man reroute [--timeout SECONDS] [--debug] [--dry-run]
+  ws-man purge [--dry-run] [--yes] [--keep-spotify] [--include-terminal]
+               [--max-attempts COUNT]
   ws-man terminal-font status
   ws-man terminal-font plan --size POINTS (--target TARGET | --all)
   ws-man status
   ws-man help
 
-Commands:
-  start
-      Cold-start all sysadmin workspace profiles serially: WS1 through WS6.
-      Default timeouts preserve the established cold-start policy:
-      90 seconds for WS1–WS5 and 180 seconds for WS6.
-
-      --timeout SECONDS
-          Override the timeout for every workspace with a positive integer or
-          decimal.
-
-      --dry-run
-          Print the six resolved cosmic-wm commands without launching
-          applications or moving windows.
+Primary sysadmin commands:
+  sysadmin
+      Reconcile the full sysadmin layout. In automatic mode, run the approved
+      native live reroute when supported managed native windows are present;
+      otherwise perform the serial WS1 through WS6 cold start.
 
   sysadmin NUMBER
-      Re-sync one existing sysadmin workspace profile. NUMBER must be 1 through 6.
-      The default application/window matching timeout is 180 seconds.
+      Re-sync one sysadmin workspace profile. NUMBER must be 1 through 6.
 
-      --timeout SECONDS
-          Override the 180-second default with a positive integer or decimal.
+  sysadmin --cold
+      Force the serial WS1 through WS6 cold start.
 
-      --dry-run
-          Print the resolved cosmic-wm command without launching applications or
-          moving windows.
+  sysadmin --reroute
+      Force the approved native live reroute.
+
+Compatibility commands:
+  start
+      Alias for: ws-man sysadmin --cold
 
   reroute
-      Route already-open supported native windows using the approved WS1–WS6
-      live-reroute snapshot. It does not launch applications; create, match,
-      move, close, or restore LibreWolf/browser windows; restore browser state;
-      restore tile ordering, geometry, sizes, split ratios, stacks; or affect WS7.
-      The default timeout is 30 seconds.
+      Alias for: ws-man sysadmin --reroute
 
-      --timeout SECONDS
-          Override the 30-second default with a positive integer or decimal.
+Purge:
+  purge --dry-run
+      List individual COSMIC windows and the preserve/close plan. No changes.
 
-      --debug
-          Enable cosmic-wm debug output.
+  purge --yes
+      Close eligible windows one at a time. Inventory is refreshed before every
+      close request. The command preserves known terminal identities by default.
 
-      --dry-run
-          Print the resolved cosmic-wm command without moving windows.
-
-  terminal-font status
-      Inspect known terminal font-size targets without changing terminal
-      configuration. Reports installed state, relevant config paths, and
-      safely discoverable current font sizes.
-
-  terminal-font plan --size POINTS (--target TARGET | --all)
-      Validate an explicit font-size request and show the non-mutating target assessment.
-      This infrastructure does not apply or persist terminal font changes.
-      Targets: wezterm, alacritty, cosmic-term, konsole, xterm,
-      xfce4-terminal.
-
-  status
-      Display active COSMIC applications and their workspace assignments.
+Safety boundaries:
+  - Native live reroute uses the approved sysadmin-live-reroute snapshot.
+  - LibreWolf/browser windows are intentionally excluded from live reroute.
+  - Reroute does not create, close, move, or restore browser windows/state.
+  - Reroute does not restore tile geometry, split ratios, stacks, or affect WS7.
+  - Purge is separate from reroute and can close browser/editor windows.
+  - Use --dry-run before state-changing commands.
 
 Examples:
-  ws-man start
-  ws-man start --timeout 180
-  ws-man start --dry-run
-  ws-man sysadmin 1
-  ws-man sysadmin 6 --timeout 300
-  ws-man sysadmin 4 --dry-run
-  ws-man reroute
-  ws-man reroute --timeout 45 --debug
-  ws-man reroute --dry-run
+  ws-man sysadmin --dry-run
+  ws-man sysadmin
+  ws-man sysadmin 3 --dry-run
+  ws-man sysadmin --cold --dry-run
+  ws-man sysadmin --reroute --dry-run
+  ws-man purge --dry-run
+  ws-man purge --yes
+  ws-man purge --yes --keep-spotify
+  ws-man purge --yes --include-terminal
   ws-man status
 USAGE
 }
@@ -101,6 +102,19 @@ is_positive_number() {
     return 1
 
   awk -v value="$value" 'BEGIN { exit !(value > 0) }'
+}
+
+is_positive_integer() {
+  [[ "$1" =~ ^[1-9][0-9]*$ ]]
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 ||
+    fail "$1 is not available on PATH."
+}
+
+require_cosmic_wm() {
+  require_command cosmic-wm
 }
 
 run_start() {
@@ -137,10 +151,7 @@ run_start() {
       fail "--timeout must be a positive number; got: $timeout_override"
   fi
 
-  if (( ! dry_run )); then
-    command -v cosmic-wm >/dev/null 2>&1 ||
-      fail 'cosmic-wm is not available on PATH.'
-  fi
+  (( dry_run )) || require_cosmic_wm
 
   printf 'Cold-starting sysadmin workspace profiles serially.\n'
 
@@ -155,7 +166,7 @@ run_start() {
 
     command=(cosmic-wm start "sysadmin-ws${workspace}" --timeout "$timeout")
 
-    if ((dry_run)); then
+    if (( dry_run )); then
       printf 'DRY RUN:'
       printf ' %q' "${command[@]}"
       printf '\n'
@@ -168,6 +179,449 @@ run_start() {
   done
 
   printf 'Completed serial sysadmin cold start.\n'
+}
+
+run_profile() {
+  local family="$1"
+  local workspace="$2"
+  shift 2
+
+  local timeout="$PROFILE_DEFAULT_TIMEOUT"
+  local dry_run=0
+  local profile_name
+
+  [[ "$family" == "$DEFAULT_PROFILE_FAMILY" ]] ||
+    fail "Unsupported profile family: $family"
+
+  [[ "$workspace" =~ ^[0-9]+$ ]] ||
+    fail "Workspace number must be an integer from $PROFILE_WORKSPACE_MIN through $PROFILE_WORKSPACE_MAX."
+
+  (( workspace >= PROFILE_WORKSPACE_MIN && workspace <= PROFILE_WORKSPACE_MAX )) ||
+    fail "Unsupported $family workspace $workspace; supported range is $PROFILE_WORKSPACE_MIN through $PROFILE_WORKSPACE_MAX."
+
+  while (($#)); do
+    case "$1" in
+      --timeout)
+        (($# >= 2)) ||
+          fail '--timeout requires a positive number of seconds.'
+        timeout="$2"
+        shift 2
+        ;;
+      --dry-run)
+        dry_run=1
+        shift
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        fail "Unknown $family option: $1"
+        ;;
+    esac
+  done
+
+  is_positive_number "$timeout" ||
+    fail "--timeout must be a positive number; got: $timeout"
+
+  (( dry_run )) || require_cosmic_wm
+
+  profile_name="${family}-ws${workspace}"
+
+  if (( dry_run )); then
+    printf 'DRY RUN: cosmic-wm start %q --timeout %q\n' \
+      "$profile_name" "$timeout"
+    return 0
+  fi
+
+  printf 'Re-syncing %s with timeout %ss.\n' "$profile_name" "$timeout"
+  exec cosmic-wm start "$profile_name" --timeout "$timeout"
+}
+
+run_reroute() {
+  local timeout="$REROUTE_DEFAULT_TIMEOUT"
+  local debug=0
+  local dry_run=0
+  local -a command
+
+  while (($#)); do
+    case "$1" in
+      --timeout)
+        (($# >= 2)) ||
+          fail '--timeout requires a positive number of seconds.'
+        timeout="$2"
+        shift 2
+        ;;
+      --debug)
+        debug=1
+        shift
+        ;;
+      --dry-run)
+        dry_run=1
+        shift
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        fail "Unknown reroute option: $1"
+        ;;
+    esac
+  done
+
+  is_positive_number "$timeout" ||
+    fail "--timeout must be a positive number; got: $timeout"
+
+  (( dry_run )) || require_cosmic_wm
+
+  command=(cosmic-wm restore --timeout "$timeout")
+  (( debug )) && command+=(--debug)
+  command+=("$DEFAULT_REROUTE_SESSION")
+
+  if (( dry_run )); then
+    printf 'DRY RUN:'
+    printf ' %q' "${command[@]}"
+    printf '\n'
+    return 0
+  fi
+
+  printf 'Running approved native live reroute with timeout %ss.\n' "$timeout"
+  exec "${command[@]}"
+}
+
+cos_cli_windows_tsv() {
+  require_command cos-cli
+  require_command python3
+
+  cos-cli info --json |
+    python3 -c '
+import json
+import sys
+
+payload = json.load(sys.stdin)
+apps = payload.get("apps", payload.get("Apps"))
+
+if not isinstance(apps, list):
+    raise SystemExit("cos-cli JSON did not provide an apps list")
+
+for fallback_index, app in enumerate(apps):
+    if not isinstance(app, dict):
+        continue
+
+    index = app.get("index", app.get("Index", fallback_index))
+    app_id = app.get(
+        "app_id",
+        app.get("appId", app.get("AppId", app.get("id", ""))),
+    )
+    title = app.get("title", app.get("Title", ""))
+
+    if not isinstance(index, int):
+        continue
+    if not isinstance(app_id, str) or not app_id:
+        continue
+    if not isinstance(title, str):
+        title = str(title)
+
+    print(f"{index}\t{app_id}\t{title}")
+'
+}
+
+has_managed_native_windows() {
+  local record
+  local current_index
+  local current_app_id
+  local current_title
+  local managed_app_id
+  local -a windows=()
+
+  mapfile -t windows < <(cos_cli_windows_tsv || true)
+
+  for record in "${windows[@]}"; do
+    IFS=$'\t' read -r current_index current_app_id current_title <<< "$record"
+
+    for managed_app_id in "${MANAGED_NATIVE_APP_IDS[@]}"; do
+      [[ "$current_app_id" == "$managed_app_id" ]] && return 0
+    done
+  done
+
+  return 1
+}
+
+purge_app_is_terminal() {
+  case "$1" in
+    com.system76.CosmicTerm|\
+    me.creativetech.terminal.workspace2|\
+    me.creativetech.terminal.workspace3|\
+    me.creativetech.terminal.workspace4)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+purge_window_key() {
+  local app_id="$1"
+  local title="$2"
+
+  printf '%s\x1f%s' "$app_id" "$title"
+}
+
+run_purge() {
+  local dry_run=0
+  local confirmed=0
+  local keep_spotify=0
+  local include_terminal=0
+  local max_attempts="$PURGE_DEFAULT_MAX_ATTEMPTS"
+  local record
+  local window_index
+  local app_id
+  local window_title
+  local current_index
+  local current_app_id
+  local current_title
+  local key
+  local eligible_found
+  local unresolved=0
+  local -a windows=()
+  local -A attempts_by_key=()
+  local -A unresolved_by_key=()
+
+  while (($#)); do
+    case "$1" in
+      --dry-run)
+        dry_run=1
+        shift
+        ;;
+      --yes)
+        confirmed=1
+        shift
+        ;;
+      --keep-spotify)
+        keep_spotify=1
+        shift
+        ;;
+      --include-terminal)
+        include_terminal=1
+        shift
+        ;;
+      --max-attempts)
+        (($# >= 2)) ||
+          fail '--max-attempts requires a positive integer.'
+        max_attempts="$2"
+        shift 2
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        fail "Unknown purge option: $1"
+        ;;
+    esac
+  done
+
+  is_positive_integer "$max_attempts" ||
+    fail "--max-attempts must be a positive integer; got: $max_attempts"
+
+  require_cosmic_wm
+  require_command cos-cli
+  require_command python3
+
+  mapfile -t windows < <(cos_cli_windows_tsv || true)
+
+  printf 'purge scope: visible COSMIC GUI windows from cos-cli info --json\n'
+  printf 'max close attempts per window identity: %s\n' "$max_attempts"
+  printf 'terminal policy: %s\n' \
+    "$([[ "$include_terminal" -eq 1 ]] && printf 'include' || printf 'preserve')"
+  printf 'spotify policy: %s\n' \
+    "$([[ "$keep_spotify" -eq 1 ]] && printf 'preserve' || printf 'close')"
+
+  if [[ "${#windows[@]}" -eq 0 ]]; then
+    printf 'No visible COSMIC GUI windows were found.\n'
+    return 0
+  fi
+
+  printf '\nPlanned window actions:\n'
+  for record in "${windows[@]}"; do
+    IFS=$'\t' read -r window_index app_id window_title <<< "$record"
+
+    [[ -n "$window_index" && -n "$app_id" ]] ||
+      fail 'Refusing purge: cos-cli returned an incomplete window record.'
+
+    if [[ "$include_terminal" -eq 0 ]] && purge_app_is_terminal "$app_id"; then
+      printf '  [preserve-terminal] index=%s app_id=%s title=%q\n' \
+        "$window_index" "$app_id" "$window_title"
+    elif [[ "$keep_spotify" -eq 1 && "$app_id" == 'Spotify' ]]; then
+      printf '  [preserve-spotify] index=%s app_id=%s title=%q\n' \
+        "$window_index" "$app_id" "$window_title"
+    else
+      printf '  [close] index=%s app_id=%s title=%q\n' \
+        "$window_index" "$app_id" "$window_title"
+    fi
+  done
+
+  if (( dry_run )); then
+    printf '\nDRY RUN: no windows were closed.\n'
+    return 0
+  fi
+
+  (( confirmed )) ||
+    fail 'Refusing to close windows without --yes. Use: ws-man purge --dry-run'
+
+  printf '\nClosing selected windows using fresh inventory before every close...\n'
+
+  while true; do
+    mapfile -t windows < <(cos_cli_windows_tsv || true)
+
+    eligible_found=0
+    window_index=''
+    app_id=''
+    window_title=''
+
+    for record in "${windows[@]}"; do
+      IFS=$'\t' read -r current_index current_app_id current_title <<< "$record"
+
+      [[ -n "$current_index" && -n "$current_app_id" ]] ||
+        fail 'Refusing purge: cos-cli returned an incomplete window record.'
+
+      if [[ "$include_terminal" -eq 0 ]] &&
+         purge_app_is_terminal "$current_app_id"; then
+        continue
+      fi
+
+      if [[ "$keep_spotify" -eq 1 && "$current_app_id" == 'Spotify' ]]; then
+        continue
+      fi
+
+      key="$(purge_window_key "$current_app_id" "$current_title")"
+
+      if (( ${attempts_by_key["$key"]:-0} >= max_attempts )); then
+        unresolved_by_key["$key"]="$current_app_id"$'\t'"$current_title"
+        continue
+      fi
+
+      eligible_found=1
+      window_index="$current_index"
+      app_id="$current_app_id"
+      window_title="$current_title"
+      break
+    done
+
+    if (( ! eligible_found )); then
+      break
+    fi
+
+    key="$(purge_window_key "$app_id" "$window_title")"
+    attempts_by_key["$key"]=$(( ${attempts_by_key["$key"]:-0} + 1 ))
+
+    printf 'closing index=%s app_id=%s attempt=%s/%s title=%q\n' \
+      "$window_index" "$app_id" \
+      "${attempts_by_key["$key"]}" "$max_attempts" "$window_title"
+
+    cos-cli close --index "$window_index" || true
+
+    # COSMIC owns window indices and may reuse them after a close. The next
+    # iteration re-inventories the complete JSON window list before selecting.
+    sleep 0.5
+  done
+
+  if (( ${#unresolved_by_key[@]} > 0 )); then
+    unresolved=1
+    printf '\nUnresolved windows after %s close attempt(s):\n' "$max_attempts" >&2
+
+    for key in "${!unresolved_by_key[@]}"; do
+      IFS=$'\t' read -r app_id window_title <<< "${unresolved_by_key["$key"]}"
+      printf '  app_id=%s title=%q\n' "$app_id" "$window_title" >&2
+    done
+  fi
+
+  if (( unresolved )); then
+    fail 'Purge completed with unresolved windows.'
+  fi
+
+  printf 'Purge request completed.\n'
+}
+
+run_sysadmin_all() {
+  local mode='auto'
+  local timeout=''
+  local dry_run=0
+  local debug=0
+  local -a forwarded=()
+
+  while (($#)); do
+    case "$1" in
+      --cold)
+        [[ "$mode" == 'auto' ]] ||
+          fail 'Choose only one of --cold or --reroute.'
+        mode='cold'
+        shift
+        ;;
+      --reroute)
+        [[ "$mode" == 'auto' ]] ||
+          fail 'Choose only one of --cold or --reroute.'
+        mode='reroute'
+        shift
+        ;;
+      --timeout)
+        (($# >= 2)) ||
+          fail '--timeout requires a positive number of seconds.'
+        timeout="$2"
+        shift 2
+        ;;
+      --debug)
+        debug=1
+        shift
+        ;;
+      --dry-run)
+        dry_run=1
+        shift
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        fail "Unknown sysadmin option: $1"
+        ;;
+    esac
+  done
+
+  if [[ -n "$timeout" ]]; then
+    is_positive_number "$timeout" ||
+      fail "--timeout must be a positive number; got: $timeout"
+  fi
+
+  if [[ "$mode" == 'auto' ]]; then
+    if has_managed_native_windows; then
+      mode='reroute'
+    else
+      mode='cold'
+    fi
+  fi
+
+  printf 'sysadmin mode: %s\n' "$mode"
+
+  [[ -n "$timeout" ]] && forwarded+=(--timeout "$timeout")
+  (( dry_run )) && forwarded+=(--dry-run)
+  (( debug )) && forwarded+=(--debug)
+
+  case "$mode" in
+    cold)
+      (( debug == 0 )) ||
+        fail '--debug is supported only with live reroute.'
+      run_start "${forwarded[@]}"
+      ;;
+    reroute)
+      run_reroute "${forwarded[@]}"
+      ;;
+    *)
+      fail "Internal error: unsupported sysadmin mode: $mode"
+      ;;
+  esac
 }
 
 terminal_font_target_is_known() {
@@ -363,117 +817,6 @@ run_terminal_font() {
   esac
 }
 
-run_profile() {
-  local family="$1"
-  local workspace="$2"
-  shift 2
-
-  local timeout="$PROFILE_DEFAULT_TIMEOUT"
-  local dry_run=0
-
-  [[ "$family" == "$DEFAULT_PROFILE_FAMILY" ]] ||
-    fail "Unsupported profile family: $family"
-
-  [[ "$workspace" =~ ^[0-9]+$ ]] ||
-    fail "Workspace number must be an integer from $PROFILE_WORKSPACE_MIN through $PROFILE_WORKSPACE_MAX."
-
-  (( workspace >= PROFILE_WORKSPACE_MIN && workspace <= PROFILE_WORKSPACE_MAX )) ||
-    fail "Unsupported $family workspace $workspace; supported range is $PROFILE_WORKSPACE_MIN through $PROFILE_WORKSPACE_MAX."
-
-  while (($#)); do
-    case "$1" in
-      --timeout)
-        (($# >= 2)) ||
-          fail '--timeout requires a positive number of seconds.'
-        timeout="$2"
-        shift 2
-        ;;
-      --dry-run)
-        dry_run=1
-        shift
-        ;;
-      -h|--help)
-        usage
-        exit 0
-        ;;
-      *)
-        fail "Unknown $family option: $1"
-        ;;
-    esac
-  done
-
-  is_positive_number "$timeout" ||
-    fail "--timeout must be a positive number; got: $timeout"
-
-  command -v cosmic-wm >/dev/null 2>&1 ||
-    fail 'cosmic-wm is not available on PATH.'
-
-  local profile_name="${family}-ws${workspace}"
-
-  if ((dry_run)); then
-    printf 'DRY RUN: cosmic-wm start %q --timeout %q\n' \
-      "$profile_name" "$timeout"
-    return 0
-  fi
-
-  printf 'Re-syncing %s with timeout %ss.\n' "$profile_name" "$timeout"
-  exec cosmic-wm start "$profile_name" --timeout "$timeout"
-}
-
-run_reroute() {
-  local timeout="$REROUTE_DEFAULT_TIMEOUT"
-  local debug=0
-  local dry_run=0
-
-  while (($#)); do
-    case "$1" in
-      --timeout)
-        (($# >= 2)) ||
-          fail '--timeout requires a positive number of seconds.'
-        timeout="$2"
-        shift 2
-        ;;
-      --debug)
-        debug=1
-        shift
-        ;;
-      --dry-run)
-        dry_run=1
-        shift
-        ;;
-      -h|--help)
-        usage
-        exit 0
-        ;;
-      *)
-        fail "Unknown reroute option: $1"
-        ;;
-    esac
-  done
-
-  is_positive_number "$timeout" ||
-    fail "--timeout must be a positive number; got: $timeout"
-
-  command -v cosmic-wm >/dev/null 2>&1 ||
-    fail 'cosmic-wm is not available on PATH.'
-
-  local -a command=(cosmic-wm restore --timeout "$timeout")
-  if ((debug)); then
-    command+=(--debug)
-  fi
-  command+=("$DEFAULT_REROUTE_SESSION")
-
-  if ((dry_run)); then
-    printf 'DRY RUN:'
-    printf ' %q' "${command[@]}"
-    printf '\n'
-    return 0
-  fi
-
-  printf 'Running approved native live reroute with timeout %ss.\n' "$timeout"
-  exec "${command[@]}"
-}
-
 main() {
   (($# >= 1)) || {
     usage
@@ -481,26 +824,42 @@ main() {
   }
 
   case "$1" in
-    start)
-      run_start "${@:2}"
-      ;;
     sysadmin)
-      (($# >= 2)) ||
-        fail 'Usage: ws-man sysadmin NUMBER [--timeout SECONDS] [--dry-run]'
-      run_profile "$1" "$2" "${@:3}"
+      shift
+
+      if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
+        local workspace="$1"
+        shift
+        run_profile "$DEFAULT_PROFILE_FAMILY" "$workspace" "$@"
+      else
+        run_sysadmin_all "$@"
+      fi
+      ;;
+    start)
+      shift
+      run_start "$@"
       ;;
     reroute)
-      run_reroute "${@:2}"
+      shift
+      run_reroute "$@"
+      ;;
+    purge)
+      shift
+      run_purge "$@"
       ;;
     terminal-font)
-      run_terminal_font "${@:2}"
+      shift
+      run_terminal_font "$@"
       ;;
     status)
-      (($# == 1)) || fail 'Usage: ws-man status'
+      shift
+      (($# == 0)) || fail 'Usage: ws-man status'
+      require_cosmic_wm
       exec cosmic-wm status
       ;;
     help|-h|--help)
-      (($# == 1)) || fail 'Usage: ws-man help'
+      shift
+      (($# == 0)) || fail 'Usage: ws-man help'
       usage
       ;;
     *)
